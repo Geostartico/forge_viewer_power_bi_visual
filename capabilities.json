@@ -1,0 +1,106 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Property Data",
+            "name": "property",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Forge Document URN",
+            "name": "forge_urn",
+            "kind": "Measure"
+        },
+        {
+            "displayName": "Forge Client ID",
+            "name": "forge_client_id",
+            "kind": "Measure"
+        },
+        {
+            "displayName": "Forge Client Secret",
+            "name": "forge_client_secret",
+            "kind": "Measure"
+        }
+    ],
+    "objects": {
+        "dataPoint": {
+            "displayName": "Data colors",
+            "properties": {
+                "defaultColor": {
+                    "displayName": "Default color",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "showAllDataPoints": {
+                    "displayName": "Show all",
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "fill": {
+                    "displayName": "Fill",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "fillRule": {
+                    "displayName": "Color saturation",
+                    "type": {
+                        "fill": {}
+                    }
+                },
+                 "fontSize": {
+                    "displayName": "Text Size",
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "categorical": {
+                "categories": {
+                    "for": {
+                        "in": "property"
+                    },
+                    "dataReductionAlgorithm": {
+                        "top": {}
+                    }
+                },
+                "values": {
+                    "select": [                        
+                        {
+                            "bind": {
+                                "to": "forge_urn"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "forge_client_id"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "forge_client_secret"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "privileges": []
+}
+

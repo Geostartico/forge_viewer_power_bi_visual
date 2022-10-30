@@ -1,0 +1,1 @@
+{"version":3,"file":"visual.css","mappings":"AAAA;EACI;EACA;AACJ;AAHA;EAIQ;EACA;AAER","sources":["webpack:///./style/visual.less"],"sourcesContent":["p {\n    font-size: 20px;\n    font-weight: bold;\n    em {\n        background: yellow;\n        padding: 5px;\n        \n    }\n}"],"names":[],"sourceRoot":""}

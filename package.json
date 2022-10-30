@@ -1,0 +1,32 @@
+{
+  "name": "visual",
+  "description": "default_template_value",
+  "repository": {
+    "type": "default_template_value",
+    "url": "default_template_value"
+  },
+  "license": "MIT",
+  "scripts": {
+    "pbiviz": "pbiviz",
+    "start": "pbiviz start",
+    "package": "pbiviz package",
+    "lint": "tslint -c tslint.json -p tsconfig.json"
+  },
+  "dependencies": {
+    "@types/d3": "5.7.2",
+    "@types/forge-viewer": "^7.59.0",
+    "d3": "5.12.0",
+    "file-system": "^2.2.2",
+    "forge-apis": "^0.9.4",
+    "jquery": "^3.6.0",
+    "powerbi-visuals-api": "5.1.0",
+    "powerbi-visuals-utils-formattingmodel": "5.0.0"
+  },
+  "devDependencies": {
+    "process": "^0.11.10",
+    "ts-loader": "6.1.0",
+    "tslint": "^5.18.0",
+    "tslint-microsoft-contrib": "^6.2.0",
+    "typescript": "3.6.3"
+  }
+}
