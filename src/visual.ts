@@ -93,7 +93,7 @@ export class ForgeViewerVis implements IVisual {
                    });
                }
                else if(this.urn != curcred[2]){
-                   Autodesk.Viewing.Document.load(this.urn, this.onLoadSuccess, this.onLoadFailure)
+                   Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure)
                }
             }
         }
@@ -118,7 +118,7 @@ export class ForgeViewerVis implements IVisual {
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv));
                 console.log(this.forgeviewer.start());
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
-                Autodesk.Viewing.Document.load(this.urn, this.onLoadSuccess, this.onLoadFailure);
+                Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
             });
     }
 

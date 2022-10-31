@@ -22,10 +22,6 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 let htmlText = 'no rendering?';
 let viewId = 'forge-viewer';
-//todo: remove hardcoded id
-let client_id = 'uRw39cAMIF0HtSGMbuTEAoDRRntE6RBh';
-let client_secret = 'mZAARANkvSeq2daZ';
-let document_id = 'urn:dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6YnVja2V0X2hoL3JhY19hZHZhbmNlZF9zYW1wbGVfcHJvamVjdC5ydnQ=';
 class ForgeViewerVis {
     constructor(options) {
         console.log('Visual constructor', options);
@@ -89,7 +85,7 @@ class ForgeViewerVis {
                     });
                 }
                 else if (this.urn != curcred[2]) {
-                    Autodesk.Viewing.Document.load(this.urn, this.onLoadSuccess, this.onLoadFailure);
+                    Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
                 }
             }
         }
@@ -112,7 +108,7 @@ class ForgeViewerVis {
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv));
                 console.log(this.forgeviewer.start());
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
-                Autodesk.Viewing.Document.load(document_id, this.onLoadSuccess, this.onLoadFailure);
+                Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
             });
         });
     }
