@@ -3,28 +3,59 @@ var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG;
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 893:
+/***/ 314:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
-__webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (/* binding */ SelectionListenerExtension)
+/* harmony export */   "V": () => (/* binding */ ExtensionGetter)
 /* harmony export */ });
-function SelectionListenerExtension(viewer, options) {
-    aviewer = this.viewer;
-    Autodesk.Viewing.Extension.call(viewer, options);
+class ExtensionGetter {
+    static SelectDesk(desk) {
+        let extension;
+        class x extends desk.Viewing.Extension {
+            constructor(viewer, options) {
+                super(viewer, options);
+            }
+            listener(event) {
+                console.log(event.dbIdArray);
+            }
+            load() {
+                console.log("selection listener loaded");
+                //if(this != undefined){
+                //this?.viewer.addEventListener(ExtensionGetter.Autodesk.Viewing.SELECTION_CHANGED_EVENT, selectionlistenerextension.prototype.selectionChangedAgent);
+                //}
+                return true;
+            }
+            unload() {
+                console.log("extension unloaded");
+                return true;
+            }
+        }
+        ;
+        extension = (viewer, options) => {
+            desk.Viewing.Extension.call(viewer, options);
+        };
+        extension.prototype = Object.create(desk.Viewing.Extension.prototype);
+        extension.prototype.selectionChangedAgent = (event) => {
+            console.log(event.dbIdArray);
+        };
+        extension.prototype.constructor = extension;
+        extension.prototype.load = () => {
+            console.log("selection listener loaded");
+            //if(this != undefined){
+            //this?.viewer.addEventListener(ExtensionGetter.Autodesk.Viewing.SELECTION_CHANGED_EVENT, selectionlistenerextension.prototype.selectionChangedAgent);
+            //}
+            return true;
+        };
+        extension.prototype.unload = () => {
+            console.log("extension unloaded");
+            return true;
+        };
+        console.log(extension);
+        return x;
+    }
+    ;
 }
-let aviewer;
-console.log("from js: " + Autodesk);
-SelectionListenerExtension.prototype = Object.create(Autodesk.Viewing.Extension.prototype);
-SelectionListenerExtension.prototype.constructor = SelectionListenerExtension;
-SelectionListenerExtension.prototype.load = () => {
-    console.log("selection listener loaded");
-    aviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, SelectionListenerExtension.prototype.selectionChangedAgent);
-};
-SelectionListenerExtension.prototype.selectionChangedAgent = (event) => {
-    console.log(event.dbIdArray);
-};
 
 
 /***/ }),
@@ -35,7 +66,7 @@ SelectionListenerExtension.prototype.selectionChangedAgent = (event) => {
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "u": () => (/* binding */ Visual)
 /* harmony export */ });
-/* harmony import */ var _selection_listener_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(893);
+/* harmony import */ var _ExtensionGetter__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(314);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -50,9 +81,9 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 let htmlText = 'no rendering?';
 let viewId = 'forge-viewer';
+let extensionid = 'selection_listener_extension';
 class Visual {
     constructor(options) {
-        console.log(_selection_listener_extension__WEBPACK_IMPORTED_MODULE_0__);
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
@@ -125,8 +156,6 @@ class Visual {
             let options = {
                 env: 'AutodeskProduction',
                 api: 'derivativeV2',
-                extensions: ['Autodesk.ViewCubeUi',
-                    'selection_listener_extension'],
                 getAccessToken: (onTokenReady) => {
                     let timeInSeconds = 3599;
                     onTokenReady(aT, timeInSeconds);
@@ -135,7 +164,9 @@ class Visual {
             yield this.getForgeviewerStyleAndSrc();
             Autodesk.Viewing.Initializer(options, () => {
                 console.log("getting started");
-                this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv));
+                let config = { extensions: ['Autodesk.ViewCubeUi',
+                        extensionid] };
+                this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
@@ -161,7 +192,8 @@ class Visual {
                 forgeViewerDiv.id = viewId;
                 forgeViewerjs.onload = () => {
                     console.log("script loaded");
-                    Autodesk.Viewing.theExtensionManager.registerExtension("selection_listener_extension", _selection_listener_extension__WEBPACK_IMPORTED_MODULE_0__);
+                    let extension = _ExtensionGetter__WEBPACK_IMPORTED_MODULE_0__/* .ExtensionGetter.SelectDesk */ .V.SelectDesk(Autodesk);
+                    Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
                     this.target.appendChild(forgeViewercss);
                     this.target.appendChild(forgeViewerDiv);
                     resolve();

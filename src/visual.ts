@@ -9,7 +9,7 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 import {ExtensionGetter} from "./ExtensionGetter"
 let htmlText : string = 'no rendering?'
 let viewId : string = 'forge-viewer';
-
+let extensionid : string = 'selection_listener_extension';
 
 export class Visual implements IVisual {
     private target: HTMLElement;
@@ -102,9 +102,7 @@ export class Visual implements IVisual {
         let aT = this.accessToken;
         let options = {
         env: 'AutodeskProduction',
-        api: 'derivativeV2',
-        extensions: ['Autodesk.ViewCubeUi',
-                     'selection_listener_extension'],
+        api: 'derivativeV2', 
         getAccessToken: (onTokenReady : any) =>{ 
             let timeInSeconds = 3599; 
             onTokenReady(aT, timeInSeconds); 
@@ -115,7 +113,9 @@ export class Visual implements IVisual {
 
         Autodesk.Viewing.Initializer(options, () =>{
                 console.log("getting started");
-                this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv));
+                let config = {extensions: ['Autodesk.ViewCubeUi',
+                     extensionid]};
+                this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
@@ -141,8 +141,8 @@ export class Visual implements IVisual {
             forgeViewerDiv.id = viewId;
             forgeViewerjs.onload = () =>{
                 console.log("script loaded");
-                ExtensionGetter.Autodesk = Autodesk;
-                Autodesk.Viewing.theExtensionManager.registerExtension("selection_listener_extension", ExtensionGetter.Extension)
+                let extension = ExtensionGetter.SelectDesk(Autodesk);
+                Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension)
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
                 resolve();
