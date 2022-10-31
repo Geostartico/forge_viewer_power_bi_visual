@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "allowJs": false,
+        "allowJs": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
         "target": "es6",

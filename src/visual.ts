@@ -6,18 +6,17 @@ import "./../style/visual.less";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
-
+import {ExtensionGetter} from "./ExtensionGetter"
 let htmlText : string = 'no rendering?'
 let viewId : string = 'forge-viewer';
 
 
-export class ForgeViewerVis implements IVisual {
+export class Visual implements IVisual {
     private target: HTMLElement;
     private updateCount: number;
     private textNode: Text;
     private pbioptions: VisualConstructorOptions;
     private forgeviewer : Autodesk.Viewing.GuiViewer3D;
-    private authClient : any;//js module, there is typing but it's not official
     private client_id : string | undefined;
     private client_secret : string | undefined;
     private autorefresh : boolean;
@@ -104,8 +103,9 @@ export class ForgeViewerVis implements IVisual {
         let options = {
         env: 'AutodeskProduction',
         api: 'derivativeV2',
-        extensions: ['Autodesk.ViewCubeUi'],
-        getAccessToken: function(onTokenReady){ 
+        extensions: ['Autodesk.ViewCubeUi',
+                     'selection_listener_extension'],
+        getAccessToken: (onTokenReady : any) =>{ 
             let timeInSeconds = 3599; 
             onTokenReady(aT, timeInSeconds); 
             }
@@ -141,6 +141,8 @@ export class ForgeViewerVis implements IVisual {
             forgeViewerDiv.id = viewId;
             forgeViewerjs.onload = () =>{
                 console.log("script loaded");
+                ExtensionGetter.Autodesk = Autodesk;
+                Autodesk.Viewing.theExtensionManager.registerExtension("selection_listener_extension", ExtensionGetter.Extension)
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
                 resolve();

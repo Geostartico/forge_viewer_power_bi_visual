@@ -3,12 +3,39 @@ var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG;
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 699:
+/***/ 893:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ SelectionListenerExtension)
+/* harmony export */ });
+function SelectionListenerExtension(viewer, options) {
+    aviewer = this.viewer;
+    Autodesk.Viewing.Extension.call(viewer, options);
+}
+let aviewer;
+console.log("from js: " + Autodesk);
+SelectionListenerExtension.prototype = Object.create(Autodesk.Viewing.Extension.prototype);
+SelectionListenerExtension.prototype.constructor = SelectionListenerExtension;
+SelectionListenerExtension.prototype.load = () => {
+    console.log("selection listener loaded");
+    aviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, SelectionListenerExtension.prototype.selectionChangedAgent);
+};
+SelectionListenerExtension.prototype.selectionChangedAgent = (event) => {
+    console.log(event.dbIdArray);
+};
+
+
+/***/ }),
+
+/***/ 85:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "n": () => (/* binding */ ForgeViewerVis)
+/* harmony export */   "u": () => (/* binding */ Visual)
 /* harmony export */ });
+/* harmony import */ var _selection_listener_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(893);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -20,10 +47,12 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
     });
 };
 
+
 let htmlText = 'no rendering?';
 let viewId = 'forge-viewer';
-class ForgeViewerVis {
+class Visual {
     constructor(options) {
+        console.log(_selection_listener_extension__WEBPACK_IMPORTED_MODULE_0__);
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
@@ -96,8 +125,9 @@ class ForgeViewerVis {
             let options = {
                 env: 'AutodeskProduction',
                 api: 'derivativeV2',
-                extensions: ['Autodesk.ViewCubeUi'],
-                getAccessToken: function (onTokenReady) {
+                extensions: ['Autodesk.ViewCubeUi',
+                    'selection_listener_extension'],
+                getAccessToken: (onTokenReady) => {
                     let timeInSeconds = 3599;
                     onTokenReady(aT, timeInSeconds);
                 }
@@ -131,6 +161,7 @@ class ForgeViewerVis {
                 forgeViewerDiv.id = viewId;
                 forgeViewerjs.onload = () => {
                     console.log("script loaded");
+                    Autodesk.Viewing.theExtensionManager.registerExtension("selection_listener_extension", _selection_listener_extension__WEBPACK_IMPORTED_MODULE_0__);
                     this.target.appendChild(forgeViewercss);
                     this.target.appendChild(forgeViewerDiv);
                     resolve();
@@ -227,7 +258,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var _src_visual__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(699);
+/* harmony import */ var _src_visual__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(85);
 /* provided dependency */ var window = __webpack_require__(738);
 
 var powerbiKey = "powerbi";
@@ -235,11 +266,11 @@ var powerbi = window[powerbiKey];
 var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG = {
     name: 'pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG',
     displayName: 'pbi_viewer_test',
-    class: 'ForgeViewerVis',
+    class: 'Visual',
     apiVersion: '5.1.0',
     create: (options) => {
-        if (_src_visual__WEBPACK_IMPORTED_MODULE_0__/* .ForgeViewerVis */ .n) {
-            return new _src_visual__WEBPACK_IMPORTED_MODULE_0__/* .ForgeViewerVis */ .n(options);
+        if (_src_visual__WEBPACK_IMPORTED_MODULE_0__/* .Visual */ .u) {
+            return new _src_visual__WEBPACK_IMPORTED_MODULE_0__/* .Visual */ .u(options);
         }
         throw 'Visual instance not found';
     },

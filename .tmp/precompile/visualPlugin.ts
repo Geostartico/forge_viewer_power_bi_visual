@@ -1,4 +1,4 @@
-import { ForgeViewerVis } from "../../src/visual";
+import { Visual } from "../../src/visual";
 import powerbiVisualsApi from "powerbi-visuals-api";
 import IVisualPlugin = powerbiVisualsApi.visuals.plugins.IVisualPlugin;
 import VisualConstructorOptions = powerbiVisualsApi.extensibility.visual.VisualConstructorOptions;
@@ -8,11 +8,11 @@ var powerbi: any = window[powerbiKey];
 var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG: IVisualPlugin = {
     name: 'pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG',
     displayName: 'pbi_viewer_test',
-    class: 'ForgeViewerVis',
+    class: 'Visual',
     apiVersion: '5.1.0',
     create: (options: VisualConstructorOptions) => {
-        if (ForgeViewerVis) {
-            return new ForgeViewerVis(options);
+        if (Visual) {
+            return new Visual(options);
         }
         throw 'Visual instance not found';
     },

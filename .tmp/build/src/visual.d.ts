@@ -3,13 +3,12 @@ import "./../style/visual.less";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
-export declare class ForgeViewerVis implements IVisual {
+export declare class Visual implements IVisual {
     private target;
     private updateCount;
     private textNode;
     private pbioptions;
     private forgeviewer;
-    private authClient;
     private client_id;
     private client_secret;
     private autorefresh;
