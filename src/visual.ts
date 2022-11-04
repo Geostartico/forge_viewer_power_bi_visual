@@ -6,8 +6,9 @@ import "./../style/visual.less";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
-import {ExtensionGetter} from "./ExtensionGetter"
-let htmlText : string = 'no rendering?'
+import {ExtensionGetter} from "./ExtensionGetter";
+import {PanelExtension} from "./panel_extension";
+let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
 let extensionid : string = 'selection_listener_extension';
 
@@ -114,7 +115,7 @@ export class Visual implements IVisual {
         Autodesk.Viewing.Initializer(options, () =>{
                 console.log("getting started");
                 let config = {extensions: ['Autodesk.ViewCubeUi',
-                     extensionid]};
+                     /*extensionid*/'panel_extension']};
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
@@ -142,7 +143,9 @@ export class Visual implements IVisual {
             forgeViewerjs.onload = () =>{
                 console.log("script loaded");
                 let extension = ExtensionGetter.SelectDesk(Autodesk);
-                Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension)
+                let panelext = PanelExtension.SELECT_DESK(Autodesk);
+                Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
+                Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
                 resolve();
