@@ -115,12 +115,49 @@ class ExtensionGetter {
 
 /***/ }),
 
+/***/ 303:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "O": () => (/* binding */ isolateFunction)
+/* harmony export */ });
+function isolateFunction(dbIds, tree /*instance tree*/, viewer) {
+    console.log("dbIds: ", dbIds);
+    let leafIDs = getLeaves(dbIds, tree);
+    let allIds = getLeaves([tree.getRootId()], tree);
+    let unwanted = allIds.filter((id) => { return leafIDs.indexOf(id) < 0; });
+    console.log("unwanted: ", unwanted);
+    console.log('leaves', leafIDs);
+    viewer.isolate(leafIDs);
+    for (let i of unwanted) {
+        viewer.impl.visibilityManager.setNodeOff(i, true);
+    }
+}
+function getLeaves(dbIds, tree) {
+    let leaves = [];
+    for (let i = 0; i < dbIds.length; i++) {
+        let subchildren = (id) => {
+            if (tree.getChildCount(id) === 0) {
+                leaves.push(id);
+            }
+            tree.enumNodeChildren(id, (child) => { subchildren(child); });
+        };
+        subchildren(dbIds[i]);
+    }
+    return leaves;
+}
+
+
+/***/ }),
+
 /***/ 931:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "b": () => (/* binding */ PanelExtension)
 /* harmony export */ });
+/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(303);
+
 class PanelExtension {
     static SELECT_DESK(desk) {
         class panel extends desk.Viewing.UI.DockingPanel {
@@ -146,30 +183,76 @@ class PanelExtension {
                 this.container.appendChild(this.createScrollContainer());
                 // footer
                 this.container.appendChild(this.createFooter());
+                //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
                 this.div = document.createElement('div');
                 this.form = document.createElement('form');
                 let txt = document.createElement("span");
                 txt.innerText = "Attribute Name to search";
+                //text input for attributeName
                 this.attributeNameInput = document.createElement('input');
                 this.attributeNameInput.type = 'text';
                 this.attributeNameInput.id = 'attributeNameInput';
                 this.attributeNameInput.name = 'attribute Name';
+                this.attributeNameInput.addEventListener('input', this.updateAttributeName.bind(this));
                 let txt2 = document.createElement('span');
                 txt2.innerText = 'Attribute value to search';
+                //text input for attributeValue
                 this.attributeValueInput = document.createElement('input');
                 this.attributeValueInput.type = 'text';
                 this.attributeValueInput.id = 'attributeValueInput';
                 this.attributeValueInput.name = 'attribute value';
+                this.attributeValueInput.addEventListener('input', this.updateAttributeValue.bind(this));
+                //submit Button
+                this.submitButton = document.createElement('input');
+                this.submitButton.type = 'submit';
+                this.submitButton.value = 'start query';
+                this.submitButton.addEventListener('click', this.onClickSubmit.bind(this));
+                //clear button
+                this.clearButton = document.createElement('input');
+                this.clearButton.type = 'submit';
+                this.clearButton.value = 'clear selections';
+                this.clearButton.addEventListener('click', this.clear.bind(this));
+                //attach elements to form
                 this.form.appendChild(txt);
                 this.form.appendChild(this.attributeNameInput);
                 this.form.appendChild(document.createElement('br'));
                 this.form.appendChild(txt2);
                 this.form.appendChild(this.attributeValueInput);
+                this.form.appendChild(document.createElement('br'));
+                this.form.appendChild(this.submitButton);
+                this.form.appendChild(document.createElement('br'));
+                this.form.appendChild(this.clearButton);
                 this.div.appendChild(this.form);
                 this.scrollContainer.appendChild(this.div);
             }
+            updateAttributeName(event) {
+                this.attrName = event.target.value;
+                console.log("attribute name: ", this.attrName);
+            }
+            updateAttributeValue(event) {
+                this.attrValue = event.target.value;
+                console.log("attribute value: ", this.attrValue);
+            }
+            onClickSubmit(event) {
+                console.log("TODO: add search function");
+                this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], { searchHidden: true, includeInherited: true });
+            }
+            //restores model visibility to default
+            clear(event) {
+                console.log("clearing");
+                this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
+                this.viewer.isolate();
+            }
+            succcallback(dbIds) {
+                let tree = this.viewer.model.getInstanceTree();
+                (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(dbIds, tree, this.viewer);
+                this.viewer.fitToView(dbIds);
+            }
+            errCallback(err) {
+                console.log("an error occured during the search: ", err);
+            }
         }
-        class ext extends desk.Viewing.Extension {
+        class exte extends desk.Viewing.Extension {
             constructor(viewer, options) {
                 super(viewer, options);
             }
@@ -185,7 +268,7 @@ class PanelExtension {
                 return true;
             }
         }
-        return ext;
+        return exte;
     }
 }
 

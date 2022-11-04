@@ -1,6 +1,14 @@
+import {isolateFunction} from './isolateFunction'
 export class PanelExtension{
     public static SELECT_DESK(desk){
         class panel extends desk.Viewing.UI.DockingPanel{
+            attrName: string;
+            attrValue: string;
+            attributeNameInput : HTMLInputElement;
+            attributeValueInput : HTMLInputElement;
+            submitButton : HTMLInputElement;
+            clearButton : HTMLInputElement;
+
             constructor(viewer, container, id, title, options = {}) {
                 super(container, id, title, options);
                 this.viewer = viewer;
@@ -29,30 +37,89 @@ export class PanelExtension{
 
                 // footer
                 this.container.appendChild(this.createFooter());
+                //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
                 this.div = document.createElement('div');
                 this.form = document.createElement('form');
+
                 let txt = document.createElement("span");
                 txt.innerText = "Attribute Name to search";
+
+                //text input for attributeName
                 this.attributeNameInput = document.createElement('input');
                 this.attributeNameInput.type = 'text';
                 this.attributeNameInput.id = 'attributeNameInput';
                 this.attributeNameInput.name = 'attribute Name';
+                this.attributeNameInput.addEventListener('input', this.updateAttributeName.bind(this))
+
                 let txt2 = document.createElement('span');
                 txt2.innerText = 'Attribute value to search';
+
+                //text input for attributeValue
                 this.attributeValueInput = document.createElement('input');
                 this.attributeValueInput.type = 'text';
                 this.attributeValueInput.id = 'attributeValueInput';
                 this.attributeValueInput.name = 'attribute value';
+                this.attributeValueInput.addEventListener('input', this.updateAttributeValue.bind(this)) 
+                
+                //submit Button
+                this.submitButton = document.createElement('input');
+                this.submitButton.type = 'submit';
+                this.submitButton.value = 'start query';
+                this.submitButton.addEventListener('click', this.onClickSubmit.bind(this))
+
+                //clear button
+                this.clearButton = document.createElement('input');
+                this.clearButton.type = 'submit';
+                this.clearButton.value = 'clear selections';
+                this.clearButton.addEventListener('click', this.clear.bind(this))
+
+                //attach elements to form
                 this.form.appendChild(txt);
                 this.form.appendChild(this.attributeNameInput);
                 this.form.appendChild(document.createElement('br'));
                 this.form.appendChild(txt2);
                 this.form.appendChild(this.attributeValueInput);
+                this.form.appendChild(document.createElement('br'));
+                this.form.appendChild(this.submitButton);
+                this.form.appendChild(document.createElement('br'));
+                this.form.appendChild(this.clearButton);
+
                 this.div.appendChild(this.form);
                 this.scrollContainer.appendChild(this.div);
             }
+
+            private updateAttributeName(event : Event){
+                this.attrName = (event.target as HTMLInputElement).value;
+                console.log("attribute name: ", this.attrName);
+            }
+
+            private updateAttributeValue(event : Event){
+                this.attrValue = (event.target as HTMLInputElement).value;
+                console.log("attribute value: ", this.attrValue);
+
+            }
+
+            private onClickSubmit(event : Event){
+                console.log("TODO: add search function");
+                this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], {searchHidden: true, includeInherited: true})
+            }
+
+            //restores model visibility to default
+            private clear(event : Event){
+                console.log("clearing");
+                this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
+                this.viewer.isolate();
+            }
+            private succcallback(dbIds: Array<number>){
+                let tree = this.viewer.model.getInstanceTree();
+                isolateFunction(dbIds, tree, this.viewer);
+                this.viewer.fitToView(dbIds);
+            }
+            private errCallback(err){
+                console.log("an error occured during the search: ", err);
+            }
         }
-        class ext extends desk.Viewing.Extension{
+        class exte extends desk.Viewing.Extension{
             pn : panel;
             constructor(viewer, options){
                 super(viewer, options);
@@ -69,6 +136,6 @@ export class PanelExtension{
                 return true;
             }
         } 
-        return ext;
+        return exte;
     } 
 }
