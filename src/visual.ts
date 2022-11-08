@@ -38,7 +38,7 @@ export class Visual implements IVisual {
     }
 
     private async syncauth(succcallback : Function){
-        console.log("authenticate");
+        //console.log("authenticate");
         let fetched = await fetch(
             "https://developer.api.autodesk.com/authentication/v1/authenticate",
             {
@@ -57,8 +57,8 @@ export class Visual implements IVisual {
 
         let jason = await fetched.json();
         this.accessToken = jason.access_token;
-        console.log("reached end of authentication");
-        console.log(this.accessToken);
+        //console.log("reached end of authentication");
+        //console.log(this.accessToken);
         succcallback();
     }
 
@@ -73,12 +73,12 @@ export class Visual implements IVisual {
         this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string'  ? cat.values[1].values[0] as string : undefined;
         this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string'  ? cat.values[2].values[0] as string : undefined
 
-        console.log(curcred, [this.client_id, this.client_secret, this.urn]);
+        //console.log(curcred, [this.client_id, this.client_secret, this.urn]);
 
         if(this.client_id != undefined && this.client_secret != undefined && this.urn != undefined){
             if(this.forgeviewer === undefined){
-                console.log("strapped");
-                let cl = () => {console.log("finished authenticating"); this.initializeViewer(viewId)}; 
+                //console.log("strapped");
+                let cl = () => {/*console.log("finished authenticating")*/; this.initializeViewer(viewId)}; 
                 this.syncauth(cl);
             }
             else{

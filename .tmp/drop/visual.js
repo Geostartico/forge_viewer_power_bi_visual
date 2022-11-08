@@ -166,6 +166,8 @@ class PanelExtension {
                 this.viewer = viewer;
             }
             initialize() {
+                //remove this, testing the parser
+                //console.log(attributeParser('cane, gatto, uccello, pippo paperino', '[materiale, personalità, hotel] (56, 94, 45, 75); [non io, tu, noi] (45, 67, 255, 156);'));
                 this.container.style.top = "10px";
                 this.container.style.left = "10px";
                 this.container.style.width = "auto";
@@ -234,19 +236,26 @@ class PanelExtension {
                 console.log("attribute value: ", this.attrValue);
             }
             onClickSubmit(event) {
-                console.log("TODO: add search function");
+                this.clear();
                 this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], { searchHidden: true, includeInherited: true });
             }
             //restores model visibility to default
-            clear(event) {
+            clear(event = null) {
                 console.log("clearing");
                 this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
                 this.viewer.isolate();
             }
             succcallback(dbIds) {
+                if (dbIds.length === 0) {
+                    return;
+                }
                 let tree = this.viewer.model.getInstanceTree();
                 (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(dbIds, tree, this.viewer);
-                this.viewer.fitToView(dbIds);
+                for (let dbid of dbIds) {
+                    //!!!!AYO!!!!!
+                    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
+                }
+                this.viewer.fitToView(dbIds[0]);
             }
             errCallback(err) {
                 console.log("an error occured during the search: ", err);
@@ -314,7 +323,7 @@ class Visual {
     }
     syncauth(succcallback) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log("authenticate");
+            //console.log("authenticate");
             let fetched = yield fetch("https://developer.api.autodesk.com/authentication/v1/authenticate", {
                 method: "POST",
                 headers: {
@@ -329,8 +338,8 @@ class Visual {
             });
             let jason = yield fetched.json();
             this.accessToken = jason.access_token;
-            console.log("reached end of authentication");
-            console.log(this.accessToken);
+            //console.log("reached end of authentication");
+            //console.log(this.accessToken);
             succcallback();
         });
     }
@@ -343,11 +352,11 @@ class Visual {
         this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string' ? cat.values[0].values[0] : undefined;
         this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string' ? cat.values[1].values[0] : undefined;
         this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string' ? cat.values[2].values[0] : undefined;
-        console.log(curcred, [this.client_id, this.client_secret, this.urn]);
+        //console.log(curcred, [this.client_id, this.client_secret, this.urn]);
         if (this.client_id != undefined && this.client_secret != undefined && this.urn != undefined) {
             if (this.forgeviewer === undefined) {
-                console.log("strapped");
-                let cl = () => { console.log("finished authenticating"); this.initializeViewer(viewId); };
+                //console.log("strapped");
+                let cl = () => { /*console.log("finished authenticating")*/ ; this.initializeViewer(viewId); };
                 this.syncauth(cl);
             }
             else {

@@ -1,4 +1,5 @@
-import {isolateFunction} from './isolateFunction'
+import {attributeParser, struct} from './attribute_parser';
+import {isolateFunction} from './isolateFunction';
 export class PanelExtension{
     public static SELECT_DESK(desk){
         class panel extends desk.Viewing.UI.DockingPanel{
@@ -15,6 +16,8 @@ export class PanelExtension{
             }
 
             initialize() {
+                //remove this, testing the parser
+                //console.log(attributeParser('cane, gatto, uccello, pippo paperino', '[materiale, personalità, hotel] (56, 94, 45, 75); [non io, tu, noi] (45, 67, 255, 156);'));
                 this.container.style.top = "10px";
                 this.container.style.left = "10px";
                 this.container.style.width = "auto";
@@ -100,21 +103,29 @@ export class PanelExtension{
             }
 
             private onClickSubmit(event : Event){
-                console.log("TODO: add search function");
+                this.clear();
                 this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], {searchHidden: true, includeInherited: true})
             }
-
             //restores model visibility to default
-            private clear(event : Event){
+            private clear(event : Event = null){
                 console.log("clearing");
                 this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
                 this.viewer.isolate();
             }
+
             private succcallback(dbIds: Array<number>){
+                if(dbIds.length === 0){
+                    return;
+                }
                 let tree = this.viewer.model.getInstanceTree();
                 isolateFunction(dbIds, tree, this.viewer);
-                this.viewer.fitToView(dbIds);
+                for(let dbid of dbIds){
+                    //!!!!AYO!!!!!
+                    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
+                }
+                this.viewer.fitToView(dbIds[0]);
             }
+
             private errCallback(err){
                 console.log("an error occured during the search: ", err);
             }
