@@ -115,6 +115,85 @@ class ExtensionGetter {
 
 /***/ }),
 
+/***/ 323:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "V": () => (/* binding */ attributeParser)
+/* harmony export */ });
+/* unused harmony export struct */
+/**
+ * name format: [name1, name2, name3] (number, number, number, number); ... (the number must be between 0 and 256)
+ * value format: val1, val2, val3 ...
+ * **/
+class struct {
+    constructor(str, nm) {
+        this.names = str;
+        this.color = nm;
+    }
+}
+function attributeParser(attributeVals, attributeNames) {
+    let dividedvals = parseVals(attributeVals);
+    let divideNames = parseNames(attributeNames);
+    return { names: divideNames, vals: dividedvals };
+}
+function parseVals(values) {
+    return values.split(',').map((str) => { return str.trim(); });
+}
+function parseNames(names) {
+    let curStart;
+    let curEnd;
+    let curNames;
+    let curColor;
+    let ret = [];
+    for (let i = 0; i < names.length; i++) {
+        //list of names to search in
+        if (names.charAt(i) === '[') {
+            curStart = i;
+            while (i < names.length && names.charAt(i) != ']') {
+                i++;
+            }
+            curNames = divideNames(names.slice(curStart + 1, i));
+        }
+        //color to associate
+        if (names.charAt(i) === '(') {
+            curStart = i;
+            while (i < names.length && names.charAt(i) != ')') {
+                i++;
+            }
+            curColor = parseColor(names.slice(curStart + 1, i));
+        }
+        //end of couple
+        if (names.charAt(i) === ';') {
+            if (curNames === undefined || curColor === undefined) {
+                throw new Error("for every list of names there must be a color and vice versa");
+            }
+            ret.push(new struct(curNames, curColor));
+            curNames = undefined;
+            curColor = undefined;
+        }
+    }
+    if (curNames != undefined || curColor != undefined) {
+        throw new Error("please end every couple name,string with a semicolon");
+    }
+    return ret;
+}
+function divideNames(str) {
+    return str.split(',').map((st) => { return st.trim(); });
+}
+function parseColor(str) {
+    return str.split(',').map((st) => {
+        let nm = Number(st);
+        if (nm > 256 || nm < 0) {
+            throw new Error("RGB colors values must be in [0, 256]");
+        }
+        return Number(st);
+    });
+}
+
+
+/***/ }),
+
 /***/ 303:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -156,9 +235,12 @@ function getLeaves(dbIds, tree) {
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "b": () => (/* binding */ PanelExtension)
 /* harmony export */ });
-/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(303);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(323);
+/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(303);
+
 
 class PanelExtension {
+    // tslint:disable:max-func-body-length
     static SELECT_DESK(desk) {
         class panel extends desk.Viewing.UI.DockingPanel {
             constructor(viewer, container, id, title, options = {}) {
@@ -237,7 +319,17 @@ class PanelExtension {
             }
             onClickSubmit(event) {
                 this.clear();
-                this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], { searchHidden: true, includeInherited: true });
+                this.searchParam = (0,_attribute_parser__WEBPACK_IMPORTED_MODULE_0__/* .attributeParser */ .V)(this.attrValue, this.attrName);
+                if (this.searchParam.names.length != this.searchParam.vals.length) {
+                    console.log(this.searchParam);
+                    throw new Error("You must have the same number of name lists and keywords");
+                }
+                this.curDone = 0;
+                this.numOfNames = this.searchParam.vals.length;
+                this.dbidToColor = new Map();
+                this.curDbids = new Set();
+                this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, { searchHidden: true, includeInherited: true });
+                //this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], {searchHidden: true, includeInherited: true})
             }
             //restores model visibility to default
             clear(event = null) {
@@ -246,19 +338,60 @@ class PanelExtension {
                 this.viewer.isolate();
             }
             succcallback(dbIds) {
-                if (dbIds.length === 0) {
-                    return;
+                console.log("begin scream");
+                //insert new dbids
+                for (let i of dbIds) {
+                    this.curDbids = this.curDbids.add(i);
+                    if (!this.dbidToColor.has(i)) {
+                        this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
+                    }
+                    else {
+                        this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
+                    }
                 }
-                let tree = this.viewer.model.getInstanceTree();
-                (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(dbIds, tree, this.viewer);
-                for (let dbid of dbIds) {
+                console.log("inserted dbid");
+                this.curDone++;
+                console.log(this.curDone);
+                //it's the last iteration, isolate and paint
+                if (this.curDone === this.numOfNames) {
+                    console.log("finishing, isolate and paint");
+                    this.clear();
+                    let tree = this.viewer.model.getInstanceTree();
+                    //isolate
+                    (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_1__/* .isolateFunction */ .O)(Array.from(this.curDbids.values()), tree, this.viewer);
+                    //for(let dbid of dbIds){
                     //!!!!AYO!!!!!
-                    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
+                    //    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
+                    //}
+                    //paint
+                    console.log("finished isolation");
+                    this.dbidToColor.forEach((colors, num) => {
+                        let avgcolor = this.average(colors, 256);
+                        let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
+                        this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true);
+                    });
+                    this.viewer.fitToView(this.curDbids);
                 }
-                this.viewer.fitToView(dbIds[0]);
+                else {
+                    this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, { searchHidden: true, includeInherited: true });
+                }
             }
             errCallback(err) {
                 console.log("an error occured during the search: ", err);
+            }
+            //the length of every array must be the same
+            average(arrs, normalization = 1) {
+                let ret = [];
+                for (let i = 0; i < arrs[0].length; i++) {
+                    let sum = 0;
+                    for (let ii = 0; ii < arrs.length; ii++) {
+                        sum += arrs[ii][i];
+                    }
+                    sum /= arrs.length;
+                    sum /= normalization;
+                    ret.push(sum);
+                }
+                return ret;
             }
         }
         class exte extends desk.Viewing.Extension {

@@ -1,6 +1,7 @@
 import {attributeParser, struct} from './attribute_parser';
 import {isolateFunction} from './isolateFunction';
 export class PanelExtension{
+    // tslint:disable:max-func-body-length
     public static SELECT_DESK(desk){
         class panel extends desk.Viewing.UI.DockingPanel{
             attrName: string;
@@ -9,6 +10,11 @@ export class PanelExtension{
             attributeValueInput : HTMLInputElement;
             submitButton : HTMLInputElement;
             clearButton : HTMLInputElement;
+            curDbids : Set<number>;
+            dbidToColor : Map<number, number[][]>;
+            numOfNames : number;
+            curDone : number;
+            searchParam : {names : struct[], vals: string[]};
 
             constructor(viewer, container, id, title, options = {}) {
                 super(container, id, title, options);
@@ -104,7 +110,19 @@ export class PanelExtension{
 
             private onClickSubmit(event : Event){
                 this.clear();
-                this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], {searchHidden: true, includeInherited: true})
+                this.searchParam = attributeParser(this.attrValue,this.attrName);
+
+                if(this.searchParam.names.length != this.searchParam.vals.length){
+                    console.log(this.searchParam);
+                    throw new Error("You must have the same number of name lists and keywords");
+                }
+                
+                this.curDone = 0;
+                this.numOfNames = this.searchParam.vals.length;
+                this.dbidToColor = new Map<number, number[][]>();
+                this.curDbids = new Set<number>();
+                this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, {searchHidden: true, includeInherited: true});
+                //this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], {searchHidden: true, includeInherited: true})
             }
             //restores model visibility to default
             private clear(event : Event = null){
@@ -113,21 +131,63 @@ export class PanelExtension{
                 this.viewer.isolate();
             }
 
-            private succcallback(dbIds: Array<number>){
-                if(dbIds.length === 0){
-                    return;
+            private succcallback(dbIds: number[]){
+                console.log("begin scream");
+                //insert new dbids
+                for(let i of  dbIds){
+                    this.curDbids = this.curDbids.add(i);
+                    if(!this.dbidToColor.has(i)){
+                        this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
+                    }
+                    else{
+                        this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
+                    }
                 }
-                let tree = this.viewer.model.getInstanceTree();
-                isolateFunction(dbIds, tree, this.viewer);
-                for(let dbid of dbIds){
-                    //!!!!AYO!!!!!
-                    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
+                console.log("inserted dbid");
+                this.curDone++;
+                console.log(this.curDone);
+                //it's the last iteration, isolate and paint
+                if(this.curDone === this.numOfNames){
+                    console.log("finishing, isolate and paint");
+                    this.clear();
+                    let tree = this.viewer.model.getInstanceTree();
+                    //isolate
+                    isolateFunction(Array.from(this.curDbids.values()), tree, this.viewer);
+                    //for(let dbid of dbIds){
+                        //!!!!AYO!!!!!
+                    //    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
+                    //}
+                    //paint
+                    console.log("finished isolation");
+                    this.dbidToColor.forEach((colors : number[][], num : number) => {
+                            let avgcolor : number [] = this.average(colors, 256);
+                            let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
+                            this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true) 
+                    })
+                    this.viewer.fitToView(this.curDbids);
                 }
-                this.viewer.fitToView(dbIds[0]);
+                else{
+                    this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, {searchHidden: true, includeInherited: true});
+                }
             }
 
             private errCallback(err){
                 console.log("an error occured during the search: ", err);
+            }
+            
+            //the length of every array must be the same
+            private average(arrs : number[][], normalization : number = 1) : number[]{
+                let ret : number[] = [];
+                for(let i = 0; i < arrs[0].length; i ++){
+                    let sum : number = 0;
+                    for(let ii = 0; ii < arrs.length; ii++){
+                        sum += arrs[ii][i];
+                    }
+                    sum /= arrs.length;
+                    sum /= normalization;
+                    ret.push(sum);
+                }
+                return ret;
             }
         }
         class exte extends desk.Viewing.Extension{
