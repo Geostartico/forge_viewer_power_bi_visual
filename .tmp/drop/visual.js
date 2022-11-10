@@ -3,113 +3,119 @@ var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG;
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 314:
+/***/ 438:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "V": () => (/* binding */ ExtensionGetter)
+/* harmony export */   "B": () => (/* binding */ Isolator)
 /* harmony export */ });
-class ExtensionGetter {
-    static SelectDesk(desk) {
-        class x extends desk.Viewing.Extension {
-            constructor(viewer, options) {
-                super(viewer, options);
-                this.modelLoaded = false;
-                this.selectionStarted = false;
-            }
-            listener(event) {
-                console.log(event.dbIdArray);
-            }
-            load() {
-                console.log("selection listener loaded");
-                this.viewer.addEventListener(desk.Viewing.SELECTION_CHANGED_EVENT, this.selectionListener.bind(this));
-                this.viewer.addEventListener(desk.Viewing.MODEL_ADDED_EVENT, ((event) => { console.log("modelLoaded: "); this.modelLoaded = true; }).bind(this));
-                return true;
-            }
-            unload() {
-                console.log("extension unloaded");
-                return true;
-            }
-            selectionListener(event) {
-                console.log("element selected" + event.dbIdArray);
-                let succcallback = (dbIds) => {
-                    console.log(dbIds);
-                    for (let i = 0; i < dbIds.length; i++) {
-                        this.viewer.getProperties(dbIds[i], (prop) => { console.log("dbId" + dbIds[i], prop); });
-                    }
-                    let id = dbIds[0];
-                    let tree = this.viewer.model.getInstanceTree();
-                    let i = 0;
-                    while (i < 10) {
-                        id = tree.getNodeParentId(id);
-                        this.viewer.getProperties(id, (prop) => { console.log("dbId " + id, prop); });
-                        i++;
-                    }
-                    this.isolateChildren(dbIds.map((elem) => { return elem; /* + 1*/ }));
-                    this.viewer.fitToView(dbIds);
-                    this.selectionStarted = false;
-                };
-                let errCallback = (err) => { console.log("an error has occured in the search: " + err); };
-                //this.viewer.isolate(event.dbIdArray);
-                this.viewer.getProperties(Array.isArray(event.dbIdArray) ? event.dbIdArray[0] : event.dbIdArray, (res) => { console.log("dbid properties:"); console.log(res); }, (err) => { console.log("error has accurred fetching properties: " + err); });
-                if (event.dbIdArray != undefined && this.modelLoaded && !this.selectionStarted) {
-                    this.selectionStarted = true;
-                    console.log("starting search");
-                    this.viewer.search('"' + "Glass" + '"', succcallback.bind(this), errCallback, ['Material'], { searchHidden: true, includeInherited: true });
-                }
-            }
-            isolateChildren(dbIds) {
-                console.log("dbIds: ", dbIds);
-                let tree = this.viewer.model.getInstanceTree();
-                let leafIDs = this.getLeaves(dbIds, tree);
-                let allIds = this.getLeaves([tree.getRootId()], tree);
-                let unwanted = allIds.filter((id) => { return leafIDs.indexOf(id) < 0; });
-                console.log("unwanted: ", unwanted);
-                console.log('leaves', leafIDs);
-                this.viewer.isolate(leafIDs);
-                for (let i of unwanted) {
-                    this.viewer.impl.visibilityManager.setNodeOff(i, true);
-                }
-            }
-            getLeaves(dbIds, tree) {
-                let leaves = [];
-                for (let i = 0; i < dbIds.length; i++) {
-                    let subchildren = (id) => {
-                        if (tree.getChildCount(id) === 0) {
-                            leaves.push(id);
-                        }
-                        tree.enumNodeChildren(id, (child) => { subchildren(child); });
-                    };
-                    subchildren(dbIds[i]);
-                }
-                return leaves;
-            }
-        }
-        ;
-        /*
-        extension = (viewer, options) => {
-            desk.Viewing.Extension.call(viewer, options);
-        }
-        extension.prototype = Object.create(desk.Viewing.Extension.prototype);
-        extension.prototype.selectionChangedAgent = (event) => {
-            console.log(event.dbIdArray);
-        };
-        extension.prototype.constructor = extension;
-        extension.prototype.load = () => {
-            console.log("selection listener loaded");
-            //if(this != undefined){
-                //this?.viewer.addEventListener(ExtensionGetter.Autodesk.Viewing.SELECTION_CHANGED_EVENT, selectionlistenerextension.prototype.selectionChangedAgent);
-            //}
-            return true
-        };
-        extension.prototype.unload = () => {
-            console.log("extension unloaded");
-            return true
-        }
-        console.log(extension);*/
-        return x;
+/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(303);
+
+//refactoring of the function to paint and 
+class Isolator {
+    constructor(aviewer) {
+        this.viewer = aviewer;
     }
-    ;
+    clear() {
+        this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
+        this.viewer.isolate();
+        this.viewer.clearThemingColors(this.viewer.model);
+        this.viewer.fitToView();
+    }
+    //TODO: make multithred
+    searchAndIsolate(anames, avalues, isolate, zoom, paint) {
+        this.isolate = isolate;
+        this.zoom = zoom;
+        this.paint = paint;
+        this.curDbids = new Set();
+        this.dbidToColor = new Map();
+        this.numOfNames = anames.length;
+        this.curDone = 0;
+        this.searchParam = { names: anames, vals: avalues };
+        this.clear();
+        this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, { searchHidden: true, includeInherited: true });
+    }
+    searchAndColorByValue(field, keyword, valueField, valueToColor, clearPrev = true) {
+        this.curDbids = new Set();
+        if (clearPrev) {
+            this.clear();
+        }
+        let succcallback2 = (dbids) => {
+            for (let i of dbids) {
+                this.curDbids.add(i);
+            }
+            let valueFieldUpper = valueField.toUpperCase();
+            for (let db of this.curDbids.values()) {
+                this.viewer.getProperties(db, (prop) => {
+                    for (let erty of prop.properties) {
+                        if (erty.displayName.toUpperCase() == valueFieldUpper) {
+                            if (valueToColor.has(erty.displayValue.toString())) {
+                                console.log(valueToColor.get(erty.displayValue.toString()));
+                                let cl = valueToColor.get(erty.displayValue.toString()).map((e) => { return e / 256; });
+                                this.viewer.setThemingColor(db, new THREE.Vector4(cl[0], cl[1], cl[2], cl[3]), this.viewer.model, true);
+                            }
+                        }
+                    }
+                }, this.errCallback);
+            }
+            (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(dbids, this.viewer.model.getInstanceTree(), this.viewer);
+        };
+        this.viewer.search('"' + keyword + '"', succcallback2.bind(this), this.errCallback, [field], { searchHidden: true, includeInherited: true });
+    }
+    succcallback(dbids) {
+        //insert new dbids
+        for (let i of dbids) {
+            this.curDbids.add(i);
+            if (!this.dbidToColor.has(i)) {
+                this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
+            }
+            else {
+                this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
+            }
+        }
+        this.curDone++;
+        console.log(this.curDone);
+        //it's the last iteration, isolate and paint
+        if (this.curDone === this.numOfNames) {
+            this.clear();
+            let tree = this.viewer.model.getInstanceTree();
+            //isolate
+            if (this.isolate) {
+                (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(Array.from(this.curDbids.values()), tree, this.viewer);
+            }
+            //paint
+            if (this.paint) {
+                this.dbidToColor.forEach((colors, num) => {
+                    let avgcolor = this.average(colors, 256);
+                    let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
+                    this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true);
+                });
+            }
+            if (this.zoom) {
+                this.viewer.fitToView(Array.from(this.curDbids.values()));
+            }
+        }
+        else {
+            this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, { searchHidden: true, includeInherited: true });
+        }
+    }
+    errCallback(err) {
+        console.log('an error has occured during search', err);
+    }
+    //the length of every array must be the same
+    average(arrs, normalization = 1) {
+        let ret = [];
+        for (let i = 0; i < arrs[0].length; i++) {
+            let sum = 0;
+            for (let ii = 0; ii < arrs.length; ii++) {
+                sum += arrs[ii][i];
+            }
+            sum /= arrs.length;
+            sum /= normalization;
+            ret.push(sum);
+        }
+        return ret;
+    }
 }
 
 
@@ -235,183 +241,134 @@ function getLeaves(dbIds, tree) {
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "b": () => (/* binding */ PanelExtension)
 /* harmony export */ });
-/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(323);
-/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(303);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(323);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(438);
 
 
-class PanelExtension {
-    // tslint:disable:max-func-body-length
-    static SELECT_DESK(desk) {
-        class panel extends desk.Viewing.UI.DockingPanel {
-            constructor(viewer, container, id, title, options = {}) {
-                super(container, id, title, options);
-                this.viewer = viewer;
-            }
-            initialize() {
-                //remove this, testing the parser
-                //console.log(attributeParser('cane, gatto, uccello, pippo paperino', '[materiale, personalità, hotel] (56, 94, 45, 75); [non io, tu, noi] (45, 67, 255, 156);'));
-                this.container.style.top = "10px";
-                this.container.style.left = "10px";
-                this.container.style.width = "auto";
-                this.container.style.height = "auto";
-                this.container.style.resize = "auto";
-                // title bar
-                this.titleBar = this.createTitleBar(this.titleLabel || this.container.id);
-                this.container.appendChild(this.titleBar);
-                // close button
-                this.closeButton = this.createCloseButton();
-                this.container.appendChild(this.closeButton);
-                // allow move
-                this.initializeMoveHandlers(this.titleBar);
-                // the main content area
-                this.container.appendChild(this.createScrollContainer());
-                // footer
-                this.container.appendChild(this.createFooter());
-                //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
-                this.div = document.createElement('div');
-                this.form = document.createElement('form');
-                let txt = document.createElement("span");
-                txt.innerText = "Attribute Name to search";
-                //text input for attributeName
-                this.attributeNameInput = document.createElement('input');
-                this.attributeNameInput.type = 'text';
-                this.attributeNameInput.id = 'attributeNameInput';
-                this.attributeNameInput.name = 'attribute Name';
-                this.attributeNameInput.addEventListener('input', this.updateAttributeName.bind(this));
-                let txt2 = document.createElement('span');
-                txt2.innerText = 'Attribute value to search';
-                //text input for attributeValue
-                this.attributeValueInput = document.createElement('input');
-                this.attributeValueInput.type = 'text';
-                this.attributeValueInput.id = 'attributeValueInput';
-                this.attributeValueInput.name = 'attribute value';
-                this.attributeValueInput.addEventListener('input', this.updateAttributeValue.bind(this));
-                //submit Button
-                this.submitButton = document.createElement('input');
-                this.submitButton.type = 'submit';
-                this.submitButton.value = 'start query';
-                this.submitButton.addEventListener('click', this.onClickSubmit.bind(this));
-                //clear button
-                this.clearButton = document.createElement('input');
-                this.clearButton.type = 'submit';
-                this.clearButton.value = 'clear selections';
-                this.clearButton.addEventListener('click', this.clear.bind(this));
-                //attach elements to form
-                this.form.appendChild(txt);
-                this.form.appendChild(this.attributeNameInput);
-                this.form.appendChild(document.createElement('br'));
-                this.form.appendChild(txt2);
-                this.form.appendChild(this.attributeValueInput);
-                this.form.appendChild(document.createElement('br'));
-                this.form.appendChild(this.submitButton);
-                this.form.appendChild(document.createElement('br'));
-                this.form.appendChild(this.clearButton);
-                this.div.appendChild(this.form);
-                this.scrollContainer.appendChild(this.div);
-            }
-            updateAttributeName(event) {
-                this.attrName = event.target.value;
-                console.log("attribute name: ", this.attrName);
-            }
-            updateAttributeValue(event) {
-                this.attrValue = event.target.value;
-                console.log("attribute value: ", this.attrValue);
-            }
-            onClickSubmit(event) {
-                this.clear();
-                this.searchParam = (0,_attribute_parser__WEBPACK_IMPORTED_MODULE_0__/* .attributeParser */ .V)(this.attrValue, this.attrName);
-                if (this.searchParam.names.length != this.searchParam.vals.length) {
-                    console.log(this.searchParam);
-                    throw new Error("You must have the same number of name lists and keywords");
-                }
-                this.curDone = 0;
-                this.numOfNames = this.searchParam.vals.length;
-                this.dbidToColor = new Map();
-                this.curDbids = new Set();
-                this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, { searchHidden: true, includeInherited: true });
-                //this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], {searchHidden: true, includeInherited: true})
-            }
-            //restores model visibility to default
-            clear(event = null) {
-                console.log("clearing");
-                this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
-                this.viewer.isolate();
-            }
-            succcallback(dbIds) {
-                console.log("begin scream");
-                //insert new dbids
-                for (let i of dbIds) {
-                    this.curDbids = this.curDbids.add(i);
-                    if (!this.dbidToColor.has(i)) {
-                        this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
-                    }
-                    else {
-                        this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
-                    }
-                }
-                console.log("inserted dbid");
-                this.curDone++;
-                console.log(this.curDone);
-                //it's the last iteration, isolate and paint
-                if (this.curDone === this.numOfNames) {
-                    console.log("finishing, isolate and paint");
-                    this.clear();
-                    let tree = this.viewer.model.getInstanceTree();
-                    //isolate
-                    (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_1__/* .isolateFunction */ .O)(Array.from(this.curDbids.values()), tree, this.viewer);
-                    //for(let dbid of dbIds){
-                    //!!!!AYO!!!!!
-                    //    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
-                    //}
-                    //paint
-                    console.log("finished isolation");
-                    this.dbidToColor.forEach((colors, num) => {
-                        let avgcolor = this.average(colors, 256);
-                        let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
-                        this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true);
-                    });
-                    this.viewer.fitToView(this.curDbids);
-                }
-                else {
-                    this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, { searchHidden: true, includeInherited: true });
-                }
-            }
-            errCallback(err) {
-                console.log("an error occured during the search: ", err);
-            }
-            //the length of every array must be the same
-            average(arrs, normalization = 1) {
-                let ret = [];
-                for (let i = 0; i < arrs[0].length; i++) {
-                    let sum = 0;
-                    for (let ii = 0; ii < arrs.length; ii++) {
-                        sum += arrs[ii][i];
-                    }
-                    sum /= arrs.length;
-                    sum /= normalization;
-                    ret.push(sum);
-                }
-                return ret;
-            }
+/**
+ * the class extends Autodesk.Viewing.UI.DockingPanel, if it is imported in another file the class is evaluated, unfortunately
+ * the code for autodesk is imported in runtime, therefore before the import Autodesk is undefined, making the code stop when
+ * Autodesk.Viewing is evaluated. the smarter solution would be to dynamically import the class, but it returns a syntax error
+ * in the code for which i don't have an exact explanation
+ * **/
+function PanelExtension() {
+    class Panel extends Autodesk.Viewing.UI.DockingPanel {
+        constructor(viewer, container, id, title, options = {}) {
+            super(container, id, title, options);
+            this.viewer = viewer;
+            this.isol = new _Isolator__WEBPACK_IMPORTED_MODULE_0__/* .Isolator */ .B(this.viewer);
         }
-        class exte extends desk.Viewing.Extension {
-            constructor(viewer, options) {
-                super(viewer, options);
-            }
-            load() {
-                console.log("loading DockingPanel");
-                this.pn = new panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle');
-                console.log(this.pn);
-                this.pn.setVisible(true);
-                return true;
-            }
-            unload() {
-                console.log("unload DockingPanel");
-                return true;
-            }
+        initialize() {
+            this.container.style.top = "10px";
+            this.container.style.left = "10px";
+            this.container.style.width = "auto";
+            this.container.style.height = "auto";
+            this.container.style.resize = "auto";
+            // title bar
+            this.titleBar = this.createTitleBar(this.titleLabel || this.container.id);
+            this.container.appendChild(this.titleBar);
+            // close button
+            this.closeButton = this.createCloseButton();
+            this.container.appendChild(this.closeButton);
+            // allow move
+            this.initializeMoveHandlers(this.titleBar);
+            // the main content area
+            this.container.appendChild(this.createScrollContainer({}));
+            // footer
+            this.container.appendChild(this.createFooter());
+            //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
+            this.div = document.createElement('div');
+            this.form = document.createElement('form');
+            let txt = document.createElement("span");
+            txt.innerText = "Attribute Name to search";
+            //text input for attributeName
+            this.attributeNameInput = document.createElement('input');
+            this.attributeNameInput.type = 'text';
+            this.attributeNameInput.id = 'attributeNameInput';
+            this.attributeNameInput.name = 'attribute Name';
+            this.attributeNameInput.addEventListener('input', this.updateAttributeName.bind(this));
+            let txt2 = document.createElement('span');
+            txt2.innerText = 'Attribute value to search';
+            //text input for attributeValue
+            this.attributeValueInput = document.createElement('input');
+            this.attributeValueInput.type = 'text';
+            this.attributeValueInput.id = 'attributeValueInput';
+            this.attributeValueInput.name = 'attribute value';
+            this.attributeValueInput.addEventListener('input', this.updateAttributeValue.bind(this));
+            //submit Button
+            this.submitButton = document.createElement('input');
+            this.submitButton.type = 'submit';
+            this.submitButton.value = 'start query';
+            this.submitButton.addEventListener('click', this.onClickSubmit.bind(this));
+            //clear button
+            this.clearButton = document.createElement('input');
+            this.clearButton.type = 'submit';
+            this.clearButton.value = 'clear selections';
+            this.clearButton.addEventListener('click', this.clear.bind(this));
+            //file input
+            this.fileInput = document.createElement('input');
+            this.fileInput.type = 'file';
+            this.fileInput.id = 'fileinput';
+            this.fileInput.name = 'upload file';
+            this.fileInput.accept = 'csv';
+            //attach elements to form
+            this.form.appendChild(txt);
+            this.form.appendChild(this.attributeNameInput);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(txt2);
+            this.form.appendChild(this.attributeValueInput);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(this.submitButton);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(this.clearButton);
+            this.form.appendChild(this.fileInput);
+            this.div.appendChild(this.form);
+            this.scrollContainer.appendChild(this.div);
         }
-        return exte;
+        updateAttributeName(event) {
+            this.attrName = event.target.value;
+            console.log("attribute name: ", this.attrName);
+        }
+        updateAttributeValue(event) {
+            this.attrValue = event.target.value;
+            console.log("attribute value: ", this.attrValue);
+        }
+        onClickSubmit(event) {
+            this.clear();
+            this.searchParam = (0,_attribute_parser__WEBPACK_IMPORTED_MODULE_1__/* .attributeParser */ .V)(this.attrValue, this.attrName);
+            if (this.searchParam.names.length != this.searchParam.vals.length) {
+                console.log(this.searchParam);
+                throw new Error("You must have the same number of name lists and keywords");
+            }
+            this.curDone = 0;
+            this.numOfNames = this.searchParam.vals.length;
+            this.dbidToColor = new Map();
+            this.curDbids = new Set();
+            this.isol.searchAndIsolate(this.searchParam.names, this.searchParam.vals, true, true, true);
+        }
+        //restores model visibility to default
+        clear(event = null) {
+            console.log("clearing");
+            this.isol.clear();
+        }
     }
+    class PanelExt extends Autodesk.Viewing.Extension {
+        constructor(viewer, options) {
+            super(viewer, options);
+        }
+        load() {
+            console.log("loading DockingPanel");
+            this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle');
+            console.log(this.pn);
+            this.pn.setVisible(true);
+            return true;
+        }
+        unload() {
+            console.log("unload DockingPanel");
+            return true;
+        }
+    }
+    return PanelExt;
 }
 
 
@@ -423,8 +380,8 @@ class PanelExtension {
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "u": () => (/* binding */ Visual)
 /* harmony export */ });
-/* harmony import */ var _ExtensionGetter__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(314);
 /* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(931);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(438);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -436,6 +393,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
     });
 };
 
+//import {ExtensionGetter} from "./ExtensionGetter";
 
 
 let htmlText = 'no rendering?';
@@ -494,6 +452,10 @@ class Visual {
             }
             else {
                 console.info("updating");
+                let iso = new _Isolator__WEBPACK_IMPORTED_MODULE_0__/* .Isolator */ .B(this.forgeviewer);
+                let m = new Map();
+                m.set('Glass', [256, 0, 0, 256]);
+                iso.searchAndColorByValue('Material', 'Glass', 'Material', m);
                 if (this.client_id != curcred[0]) {
                     console.info("changing account");
                     this.syncauth(() => {
@@ -551,9 +513,10 @@ class Visual {
                 forgeViewerDiv.id = viewId;
                 forgeViewerjs.onload = () => {
                     console.log("script loaded");
-                    let extension = _ExtensionGetter__WEBPACK_IMPORTED_MODULE_0__/* .ExtensionGetter.SelectDesk */ .V.SelectDesk(Autodesk);
-                    let panelext = _panel_extension__WEBPACK_IMPORTED_MODULE_1__/* .PanelExtension.SELECT_DESK */ .b.SELECT_DESK(Autodesk);
-                    Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
+                    //let extension = ExtensionGetter.SelectDesk(Autodesk);
+                    //let panelext = PanelExtension.SELECT_DESK(Autodesk);
+                    //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
+                    let panelext = (0,_panel_extension__WEBPACK_IMPORTED_MODULE_1__/* .PanelExtension */ .b)();
                     Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
                     this.target.appendChild(forgeViewercss);
                     this.target.appendChild(forgeViewerDiv);

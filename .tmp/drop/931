@@ -1,0 +1,373 @@
+"use strict";
+(self["webpackChunkpbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG"] = self["webpackChunkpbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG"] || []).push([[931],{
+
+/***/ 438:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "B": () => (/* binding */ Isolator)
+/* harmony export */ });
+/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(303);
+
+//refactoring of the function to paint and 
+class Isolator {
+    curDbids;
+    dbidToColor;
+    numOfNames;
+    curDone;
+    viewer;
+    searchParam;
+    isolate;
+    zoom;
+    paint;
+    constructor(aviewer) {
+        this.viewer = aviewer;
+    }
+    clear() {
+        this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
+        this.viewer.isolate();
+        this.viewer.clearThemingColors(this.viewer.model);
+        this.viewer.fitToView();
+    }
+    //TODO: make multithred
+    searchAndIsolate(anames, avalues, isolate, zoom, paint) {
+        this.isolate = isolate;
+        this.zoom = zoom;
+        this.paint = paint;
+        this.curDbids = new Set();
+        this.dbidToColor = new Map();
+        this.numOfNames = anames.length;
+        this.curDone = 0;
+        this.searchParam = { names: anames, vals: avalues };
+        this.clear();
+        this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, { searchHidden: true, includeInherited: true });
+    }
+    succcallback(dbids) {
+        //insert new dbids
+        for (let i of dbids) {
+            this.curDbids.add(i);
+            if (!this.dbidToColor.has(i)) {
+                this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
+            }
+            else {
+                this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
+            }
+        }
+        this.curDone++;
+        console.log(this.curDone);
+        //it's the last iteration, isolate and paint
+        if (this.curDone === this.numOfNames) {
+            this.clear();
+            let tree = this.viewer.model.getInstanceTree();
+            //isolate
+            if (this.isolate) {
+                (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(Array.from(this.curDbids.values()), tree, this.viewer);
+            }
+            //paint
+            if (this.paint) {
+                this.dbidToColor.forEach((colors, num) => {
+                    let avgcolor = this.average(colors, 256);
+                    let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
+                    this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true);
+                });
+            }
+            if (this.zoom) {
+                this.viewer.fitToView(Array.from(this.curDbids.values()));
+            }
+        }
+        else {
+            this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, { searchHidden: true, includeInherited: true });
+        }
+    }
+    errCallback(err) {
+        console.log('an error has occured during search', err);
+    }
+    //the length of every array must be the same
+    average(arrs, normalization = 1) {
+        let ret = [];
+        for (let i = 0; i < arrs[0].length; i++) {
+            let sum = 0;
+            for (let ii = 0; ii < arrs.length; ii++) {
+                sum += arrs[ii][i];
+            }
+            sum /= arrs.length;
+            sum /= normalization;
+            ret.push(sum);
+        }
+        return ret;
+    }
+}
+
+
+/***/ }),
+
+/***/ 323:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "V": () => (/* binding */ attributeParser)
+/* harmony export */ });
+/* unused harmony export struct */
+/**
+ * name format: [name1, name2, name3] (number, number, number, number); ... (the number must be between 0 and 256)
+ * value format: val1, val2, val3 ...
+ * **/
+class struct {
+    names;
+    color;
+    constructor(str, nm) {
+        this.names = str;
+        this.color = nm;
+    }
+}
+function attributeParser(attributeVals, attributeNames) {
+    let dividedvals = parseVals(attributeVals);
+    let divideNames = parseNames(attributeNames);
+    return { names: divideNames, vals: dividedvals };
+}
+function parseVals(values) {
+    return values.split(',').map((str) => { return str.trim(); });
+}
+function parseNames(names) {
+    let curStart;
+    let curEnd;
+    let curNames;
+    let curColor;
+    let ret = [];
+    for (let i = 0; i < names.length; i++) {
+        //list of names to search in
+        if (names.charAt(i) === '[') {
+            curStart = i;
+            while (i < names.length && names.charAt(i) != ']') {
+                i++;
+            }
+            curNames = divideNames(names.slice(curStart + 1, i));
+        }
+        //color to associate
+        if (names.charAt(i) === '(') {
+            curStart = i;
+            while (i < names.length && names.charAt(i) != ')') {
+                i++;
+            }
+            curColor = parseColor(names.slice(curStart + 1, i));
+        }
+        //end of couple
+        if (names.charAt(i) === ';') {
+            if (curNames === undefined || curColor === undefined) {
+                throw new Error("for every list of names there must be a color and vice versa");
+            }
+            ret.push(new struct(curNames, curColor));
+            curNames = undefined;
+            curColor = undefined;
+        }
+    }
+    if (curNames != undefined || curColor != undefined) {
+        throw new Error("please end every couple name,string with a semicolon");
+    }
+    return ret;
+}
+function divideNames(str) {
+    return str.split(',').map((st) => { return st.trim(); });
+}
+function parseColor(str) {
+    return str.split(',').map((st) => {
+        let nm = Number(st);
+        if (nm > 256 || nm < 0) {
+            throw new Error("RGB colors values must be in [0, 256]");
+        }
+        return Number(st);
+    });
+}
+
+
+/***/ }),
+
+/***/ 303:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "O": () => (/* binding */ isolateFunction)
+/* harmony export */ });
+function isolateFunction(dbIds, tree /*instance tree*/, viewer) {
+    console.log("dbIds: ", dbIds);
+    let leafIDs = getLeaves(dbIds, tree);
+    let allIds = getLeaves([tree.getRootId()], tree);
+    let unwanted = allIds.filter((id) => { return leafIDs.indexOf(id) < 0; });
+    console.log("unwanted: ", unwanted);
+    console.log('leaves', leafIDs);
+    viewer.isolate(leafIDs);
+    for (let i of unwanted) {
+        viewer.impl.visibilityManager.setNodeOff(i, true);
+    }
+}
+function getLeaves(dbIds, tree) {
+    let leaves = [];
+    for (let i = 0; i < dbIds.length; i++) {
+        let subchildren = (id) => {
+            if (tree.getChildCount(id) === 0) {
+                leaves.push(id);
+            }
+            tree.enumNodeChildren(id, (child) => { subchildren(child); });
+        };
+        subchildren(dbIds[i]);
+    }
+    return leaves;
+}
+
+
+/***/ }),
+
+/***/ 931:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "PanelExtension": () => (/* binding */ PanelExtension)
+/* harmony export */ });
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(323);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(438);
+
+
+function PanelExtension() {
+    class Panel extends Autodesk.Viewing.UI.DockingPanel {
+        attrName;
+        attrValue;
+        attributeNameInput;
+        attributeValueInput;
+        submitButton;
+        clearButton;
+        fileInput;
+        div;
+        form;
+        curDbids;
+        dbidToColor;
+        numOfNames;
+        curDone;
+        searchParam;
+        isol;
+        viewer; //can't type it, issues with some methods signatures which miss parameters in the typescript version
+        titleBar;
+        closeButton;
+        constructor(viewer, container, id, title, options = {}) {
+            super(container, id, title, options);
+            this.viewer = viewer;
+            this.isol = new _Isolator__WEBPACK_IMPORTED_MODULE_0__/* .Isolator */ .B(this.viewer);
+        }
+        initialize() {
+            this.container.style.top = "10px";
+            this.container.style.left = "10px";
+            this.container.style.width = "auto";
+            this.container.style.height = "auto";
+            this.container.style.resize = "auto";
+            // title bar
+            this.titleBar = this.createTitleBar(this.titleLabel || this.container.id);
+            this.container.appendChild(this.titleBar);
+            // close button
+            this.closeButton = this.createCloseButton();
+            this.container.appendChild(this.closeButton);
+            // allow move
+            this.initializeMoveHandlers(this.titleBar);
+            // the main content area
+            this.container.appendChild(this.createScrollContainer({}));
+            // footer
+            this.container.appendChild(this.createFooter());
+            //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
+            this.div = document.createElement('div');
+            this.form = document.createElement('form');
+            let txt = document.createElement("span");
+            txt.innerText = "Attribute Name to search";
+            //text input for attributeName
+            this.attributeNameInput = document.createElement('input');
+            this.attributeNameInput.type = 'text';
+            this.attributeNameInput.id = 'attributeNameInput';
+            this.attributeNameInput.name = 'attribute Name';
+            this.attributeNameInput.addEventListener('input', this.updateAttributeName.bind(this));
+            let txt2 = document.createElement('span');
+            txt2.innerText = 'Attribute value to search';
+            //text input for attributeValue
+            this.attributeValueInput = document.createElement('input');
+            this.attributeValueInput.type = 'text';
+            this.attributeValueInput.id = 'attributeValueInput';
+            this.attributeValueInput.name = 'attribute value';
+            this.attributeValueInput.addEventListener('input', this.updateAttributeValue.bind(this));
+            //submit Button
+            this.submitButton = document.createElement('input');
+            this.submitButton.type = 'submit';
+            this.submitButton.value = 'start query';
+            this.submitButton.addEventListener('click', this.onClickSubmit.bind(this));
+            //clear button
+            this.clearButton = document.createElement('input');
+            this.clearButton.type = 'submit';
+            this.clearButton.value = 'clear selections';
+            this.clearButton.addEventListener('click', this.clear.bind(this));
+            //file input
+            this.fileInput = document.createElement('input');
+            this.fileInput.type = 'file';
+            this.fileInput.id = 'fileinput';
+            this.fileInput.name = 'upload file';
+            this.fileInput.accept = 'csv';
+            //attach elements to form
+            this.form.appendChild(txt);
+            this.form.appendChild(this.attributeNameInput);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(txt2);
+            this.form.appendChild(this.attributeValueInput);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(this.submitButton);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(this.clearButton);
+            this.form.appendChild(this.fileInput);
+            this.div.appendChild(this.form);
+            this.scrollContainer.appendChild(this.div);
+        }
+        updateAttributeName(event) {
+            this.attrName = event.target.value;
+            console.log("attribute name: ", this.attrName);
+        }
+        updateAttributeValue(event) {
+            this.attrValue = event.target.value;
+            console.log("attribute value: ", this.attrValue);
+        }
+        onClickSubmit(event) {
+            this.clear();
+            this.searchParam = (0,_attribute_parser__WEBPACK_IMPORTED_MODULE_1__/* .attributeParser */ .V)(this.attrValue, this.attrName);
+            if (this.searchParam.names.length != this.searchParam.vals.length) {
+                console.log(this.searchParam);
+                throw new Error("You must have the same number of name lists and keywords");
+            }
+            this.curDone = 0;
+            this.numOfNames = this.searchParam.vals.length;
+            this.dbidToColor = new Map();
+            this.curDbids = new Set();
+            this.isol.searchAndIsolate(this.searchParam.names, this.searchParam.vals, true, true, true);
+        }
+        //restores model visibility to default
+        clear(event = null) {
+            console.log("clearing");
+            this.isol.clear();
+        }
+    }
+    class PanelExt extends Autodesk.Viewing.Extension {
+        pn;
+        constructor(viewer, options) {
+            super(viewer, options);
+        }
+        load() {
+            console.log("loading DockingPanel");
+            this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle');
+            console.log(this.pn);
+            this.pn.setVisible(true);
+            return true;
+        }
+        unload() {
+            console.log("unload DockingPanel");
+            return true;
+        }
+    }
+    return PanelExt;
+}
+
+
+/***/ })
+
+}]);

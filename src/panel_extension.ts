@@ -1,212 +1,170 @@
 import {attributeParser, struct} from './attribute_parser';
 import {isolateFunction} from './isolateFunction';
-export class PanelExtension{
-    // tslint:disable:max-func-body-length
-    public static SELECT_DESK(desk){
-        class panel extends desk.Viewing.UI.DockingPanel{
-            attrName: string;
-            attrValue: string;
-            attributeNameInput : HTMLInputElement;
-            attributeValueInput : HTMLInputElement;
-            submitButton : HTMLInputElement;
-            clearButton : HTMLInputElement;
-            curDbids : Set<number>;
-            dbidToColor : Map<number, number[][]>;
-            numOfNames : number;
-            curDone : number;
-            searchParam : {names : struct[], vals: string[]};
+import {Isolator} from './Isolator';
+/**
+ * the class extends Autodesk.Viewing.UI.DockingPanel, if it is imported in another file the class is evaluated, unfortunately
+ * the code for autodesk is imported in runtime, therefore before the import Autodesk is undefined, making the code stop when
+ * Autodesk.Viewing is evaluated. the smarter solution would be to dynamically import the class, but it returns a syntax error
+ * in the code for which i don't have an exact explanation
+ * **/
+export function PanelExtension(){
+    class Panel extends Autodesk.Viewing.UI.DockingPanel{
+        attrName: string;
+        attrValue: string;
+        attributeNameInput : HTMLInputElement;
+        attributeValueInput : HTMLInputElement;
+        submitButton : HTMLInputElement;
+        clearButton : HTMLInputElement;
+        fileInput : HTMLInputElement;
+        div : HTMLDivElement;
+        form;
+        curDbids : Set<number>;
+        dbidToColor : Map<number, number[][]>;
+        numOfNames : number;
+        curDone : number;
+        searchParam : {names : struct[], vals: string[]};
+        isol : Isolator;
+        viewer : any;//can't type it, issues with some methods signatures which miss parameters in the typescript version
+        titleBar : any;
+        closeButton : any;
 
-            constructor(viewer, container, id, title, options = {}) {
-                super(container, id, title, options);
-                this.viewer = viewer;
-            }
+        constructor(viewer, container, id, title, options = {}) {
+            super(container, id, title, options);
+            this.viewer = viewer;
+            this.isol = new Isolator(this.viewer);
+        }
 
-            initialize() {
-                //remove this, testing the parser
-                //console.log(attributeParser('cane, gatto, uccello, pippo paperino', '[materiale, personalità, hotel] (56, 94, 45, 75); [non io, tu, noi] (45, 67, 255, 156);'));
-                this.container.style.top = "10px";
-                this.container.style.left = "10px";
-                this.container.style.width = "auto";
-                this.container.style.height = "auto";
-                this.container.style.resize = "auto";
+        initialize() {
+            this.container.style.top = "10px";
+            this.container.style.left = "10px";
+            this.container.style.width = "auto";
+            this.container.style.height = "auto";
+            this.container.style.resize = "auto";
 
-                // title bar
-                this.titleBar = this.createTitleBar(this.titleLabel || this.container.id);
-                this.container.appendChild(this.titleBar);
+            // title bar
+            this.titleBar = this.createTitleBar(this.titleLabel || this.container.id);
+            this.container.appendChild(this.titleBar);
 
-                // close button
-                this.closeButton = this.createCloseButton();
-                this.container.appendChild(this.closeButton);
+            // close button
+            this.closeButton = this.createCloseButton();
+            this.container.appendChild(this.closeButton);
 
-                // allow move
-                this.initializeMoveHandlers(this.titleBar);
+            // allow move
+            this.initializeMoveHandlers(this.titleBar);
 
-                // the main content area
-                this.container.appendChild(this.createScrollContainer());
+            // the main content area
+            this.container.appendChild(this.createScrollContainer({}));
 
-                // footer
-                this.container.appendChild(this.createFooter());
-                //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
-                this.div = document.createElement('div');
-                this.form = document.createElement('form');
+            // footer
+            this.container.appendChild(this.createFooter());
+            //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
+            this.div = document.createElement('div');
+            this.form = document.createElement('form');
 
-                let txt = document.createElement("span");
-                txt.innerText = "Attribute Name to search";
+            let txt = document.createElement("span");
+            txt.innerText = "Attribute Name to search";
 
-                //text input for attributeName
-                this.attributeNameInput = document.createElement('input');
-                this.attributeNameInput.type = 'text';
-                this.attributeNameInput.id = 'attributeNameInput';
-                this.attributeNameInput.name = 'attribute Name';
-                this.attributeNameInput.addEventListener('input', this.updateAttributeName.bind(this))
+            //text input for attributeName
+            this.attributeNameInput = document.createElement('input');
+            this.attributeNameInput.type = 'text';
+            this.attributeNameInput.id = 'attributeNameInput';
+            this.attributeNameInput.name = 'attribute Name';
+            this.attributeNameInput.addEventListener('input', this.updateAttributeName.bind(this))
 
-                let txt2 = document.createElement('span');
-                txt2.innerText = 'Attribute value to search';
+            let txt2 = document.createElement('span');
+            txt2.innerText = 'Attribute value to search';
 
-                //text input for attributeValue
-                this.attributeValueInput = document.createElement('input');
-                this.attributeValueInput.type = 'text';
-                this.attributeValueInput.id = 'attributeValueInput';
-                this.attributeValueInput.name = 'attribute value';
-                this.attributeValueInput.addEventListener('input', this.updateAttributeValue.bind(this)) 
-                
-                //submit Button
-                this.submitButton = document.createElement('input');
-                this.submitButton.type = 'submit';
-                this.submitButton.value = 'start query';
-                this.submitButton.addEventListener('click', this.onClickSubmit.bind(this))
+            //text input for attributeValue
+            this.attributeValueInput = document.createElement('input');
+            this.attributeValueInput.type = 'text';
+            this.attributeValueInput.id = 'attributeValueInput';
+            this.attributeValueInput.name = 'attribute value';
+            this.attributeValueInput.addEventListener('input', this.updateAttributeValue.bind(this)) 
+            
+            //submit Button
+            this.submitButton = document.createElement('input');
+            this.submitButton.type = 'submit';
+            this.submitButton.value = 'start query';
+            this.submitButton.addEventListener('click', this.onClickSubmit.bind(this))
 
-                //clear button
-                this.clearButton = document.createElement('input');
-                this.clearButton.type = 'submit';
-                this.clearButton.value = 'clear selections';
-                this.clearButton.addEventListener('click', this.clear.bind(this))
+            //clear button
+            this.clearButton = document.createElement('input');
+            this.clearButton.type = 'submit';
+            this.clearButton.value = 'clear selections';
+            this.clearButton.addEventListener('click', this.clear.bind(this))
 
-                //attach elements to form
-                this.form.appendChild(txt);
-                this.form.appendChild(this.attributeNameInput);
-                this.form.appendChild(document.createElement('br'));
-                this.form.appendChild(txt2);
-                this.form.appendChild(this.attributeValueInput);
-                this.form.appendChild(document.createElement('br'));
-                this.form.appendChild(this.submitButton);
-                this.form.appendChild(document.createElement('br'));
-                this.form.appendChild(this.clearButton);
+            //file input
+            this.fileInput = document.createElement('input');
+            this.fileInput.type = 'file';
+            this.fileInput.id = 'fileinput';
+            this.fileInput.name = 'upload file';
+            this.fileInput.accept = 'csv';
 
-                this.div.appendChild(this.form);
-                this.scrollContainer.appendChild(this.div);
-            }
+            //attach elements to form
+            this.form.appendChild(txt);
+            this.form.appendChild(this.attributeNameInput);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(txt2);
+            this.form.appendChild(this.attributeValueInput);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(this.submitButton);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(this.clearButton);
+            this.form.appendChild(this.fileInput);
 
-            private updateAttributeName(event : Event){
-                this.attrName = (event.target as HTMLInputElement).value;
-                console.log("attribute name: ", this.attrName);
-            }
+            this.div.appendChild(this.form);
+            this.scrollContainer.appendChild(this.div);
+        }
 
-            private updateAttributeValue(event : Event){
-                this.attrValue = (event.target as HTMLInputElement).value;
-                console.log("attribute value: ", this.attrValue);
+        private updateAttributeName(event : Event){
+            this.attrName = (event.target as HTMLInputElement).value;
+            console.log("attribute name: ", this.attrName);
+        }
 
-            }
+        private updateAttributeValue(event : Event){
+            this.attrValue = (event.target as HTMLInputElement).value;
+            console.log("attribute value: ", this.attrValue);
+        }
 
-            private onClickSubmit(event : Event){
-                this.clear();
-                this.searchParam = attributeParser(this.attrValue,this.attrName);
+        private onClickSubmit(event : Event){
+            this.clear();
+            this.searchParam = attributeParser(this.attrValue,this.attrName);
 
-                if(this.searchParam.names.length != this.searchParam.vals.length){
-                    console.log(this.searchParam);
-                    throw new Error("You must have the same number of name lists and keywords");
-                }
-                
-                this.curDone = 0;
-                this.numOfNames = this.searchParam.vals.length;
-                this.dbidToColor = new Map<number, number[][]>();
-                this.curDbids = new Set<number>();
-                this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, {searchHidden: true, includeInherited: true});
-                //this.viewer.search('"' + this.attrValue + '"', this.succcallback.bind(this), this.errCallback, [this.attrName], {searchHidden: true, includeInherited: true})
-            }
-            //restores model visibility to default
-            private clear(event : Event = null){
-                console.log("clearing");
-                this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
-                this.viewer.isolate();
-            }
-
-            private succcallback(dbIds: number[]){
-                console.log("begin scream");
-                //insert new dbids
-                for(let i of  dbIds){
-                    this.curDbids = this.curDbids.add(i);
-                    if(!this.dbidToColor.has(i)){
-                        this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
-                    }
-                    else{
-                        this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
-                    }
-                }
-                console.log("inserted dbid");
-                this.curDone++;
-                console.log(this.curDone);
-                //it's the last iteration, isolate and paint
-                if(this.curDone === this.numOfNames){
-                    console.log("finishing, isolate and paint");
-                    this.clear();
-                    let tree = this.viewer.model.getInstanceTree();
-                    //isolate
-                    isolateFunction(Array.from(this.curDbids.values()), tree, this.viewer);
-                    //for(let dbid of dbIds){
-                        //!!!!AYO!!!!!
-                    //    this.viewer.setThemingColor(dbid, new THREE.Vector4(1, 0, 0, 1), this.viewer.model, true);
-                    //}
-                    //paint
-                    console.log("finished isolation");
-                    this.dbidToColor.forEach((colors : number[][], num : number) => {
-                            let avgcolor : number [] = this.average(colors, 256);
-                            let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
-                            this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true) 
-                    })
-                    this.viewer.fitToView(this.curDbids);
-                }
-                else{
-                    this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, {searchHidden: true, includeInherited: true});
-                }
-            }
-
-            private errCallback(err){
-                console.log("an error occured during the search: ", err);
+            if(this.searchParam.names.length != this.searchParam.vals.length){
+                console.log(this.searchParam);
+                throw new Error("You must have the same number of name lists and keywords");
             }
             
-            //the length of every array must be the same
-            private average(arrs : number[][], normalization : number = 1) : number[]{
-                let ret : number[] = [];
-                for(let i = 0; i < arrs[0].length; i ++){
-                    let sum : number = 0;
-                    for(let ii = 0; ii < arrs.length; ii++){
-                        sum += arrs[ii][i];
-                    }
-                    sum /= arrs.length;
-                    sum /= normalization;
-                    ret.push(sum);
-                }
-                return ret;
-            }
+            this.curDone = 0;
+            this.numOfNames = this.searchParam.vals.length;
+            this.dbidToColor = new Map<number, number[][]>();
+            this.curDbids = new Set<number>();
+            this.isol.searchAndIsolate(this.searchParam.names, this.searchParam.vals, true, true, true);
         }
-        class exte extends desk.Viewing.Extension{
-            pn : panel;
-            constructor(viewer, options){
-                super(viewer, options);
-            }
-            public load() : boolean{
-                console.log("loading DockingPanel");
-                this.pn = new panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
-                console.log(this.pn);
-                this.pn.setVisible(true);
-                return true;
-            } 
-            public unload() : boolean{
-                console.log("unload DockingPanel")
-                return true;
-            }
+        //restores model visibility to default
+        private clear(event : Event = null){
+            console.log("clearing");
+            this.isol.clear();
+        }
+        
+    }
+
+    class PanelExt extends Autodesk.Viewing.Extension{
+        pn : Panel;
+        constructor(viewer, options){
+            super(viewer, options);
+        }
+        public load() : boolean{
+            console.log("loading DockingPanel");
+            this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
+            console.log(this.pn);
+            this.pn.setVisible(true);
+            return true;
         } 
-        return exte;
+        public unload() : boolean{
+            console.log("unload DockingPanel")
+            return true;
+        }
     } 
+    return PanelExt
 }

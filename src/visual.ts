@@ -6,8 +6,9 @@ import "./../style/visual.less";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
-import {ExtensionGetter} from "./ExtensionGetter";
+//import {ExtensionGetter} from "./ExtensionGetter";
 import {PanelExtension} from "./panel_extension";
+import {Isolator} from "./Isolator";
 let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
 let extensionid : string = 'selection_listener_extension';
@@ -83,6 +84,10 @@ export class Visual implements IVisual {
             }
             else{
                console.info("updating");
+               let iso : Isolator = new Isolator(this.forgeviewer);
+               let m : Map<string, number[]> = new Map<string, number[]>();
+               m.set('Glass', [256, 0, 0, 256]);
+               iso.searchAndColorByValue('Material', 'Glass', 'Material', m)
                if(this.client_id != curcred[0]){
                    console.info("changing account");
                    this.syncauth(() => {
@@ -142,9 +147,10 @@ export class Visual implements IVisual {
             forgeViewerDiv.id = viewId;
             forgeViewerjs.onload = () =>{
                 console.log("script loaded");
-                let extension = ExtensionGetter.SelectDesk(Autodesk);
-                let panelext = PanelExtension.SELECT_DESK(Autodesk);
-                Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
+                //let extension = ExtensionGetter.SelectDesk(Autodesk);
+                //let panelext = PanelExtension.SELECT_DESK(Autodesk);
+                //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
+                let panelext = PanelExtension();
                 Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
