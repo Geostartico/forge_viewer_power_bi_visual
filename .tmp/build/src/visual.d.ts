@@ -14,6 +14,14 @@ export declare class Visual implements IVisual {
     private autorefresh;
     private accessToken;
     private urn;
+    private maxrows;
+    private isolator;
+    private connector_extension;
+    private id_column;
+    private value_column;
+    private id_property;
+    private color_values;
+    private colors;
     constructor(options: VisualConstructorOptions);
     private syncauth;
     update(options: VisualUpdateOptions): void;
@@ -22,4 +30,9 @@ export declare class Visual implements IVisual {
     private onLoadSuccess;
     private onLoadFailure;
     private myloadExtension;
+    /**
+    * pass the options.categories used in the update function
+    * the model objects will be isolated/colored accordingly (see class parameters)
+    * **/
+    private isolateBySelection;
 }

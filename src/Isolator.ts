@@ -24,6 +24,9 @@ export class Isolator{
     }
     //TODO: make multithred
     public searchAndIsolate(anames : struct[], avalues : string[], isolate : boolean, zoom : boolean, paint : boolean) : void{
+        if(anames.length != avalues.length){
+            throw new Error('the values and structs must be the same number');
+        }
         this.isolate = isolate;
         this.zoom = zoom;
         this.paint = paint;
@@ -64,6 +67,7 @@ export class Isolator{
         }
         this.viewer.search('"' + keyword + '"', succcallback2.bind(this), this.errCallback, [field], {searchHidden: true, includeInherited: true});
     } 
+
     private succcallback(dbids : number[]){
         //insert new dbids
         for(let i of  dbids){

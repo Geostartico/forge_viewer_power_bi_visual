@@ -150,21 +150,48 @@ export function PanelExtension(){
     }
 
     class PanelExt extends Autodesk.Viewing.Extension{
+
         pn : Panel;
+        btn : Autodesk.Viewing.UI.Button;
+        subToolbar : Autodesk.Viewing.UI.ToolBar;
+
         constructor(viewer, options){
             super(viewer, options);
         }
+
         public load() : boolean{
             console.log("loading DockingPanel");
-            this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
-            console.log(this.pn);
-            this.pn.setVisible(true);
+            //this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
+            ////console.log(this.pn);
+            //this.pn.setVisible(true);
             return true;
         } 
+
         public unload() : boolean{
             console.log("unload DockingPanel")
             return true;
         }
+
+        public onToolbarCreated(toolbar : Autodesk.Viewing.UI.ToolBar){
+            var viewer = this.viewer;
+
+
+            // Button 1
+            this.btn = new Autodesk.Viewing.UI.Button('show-env-bg-button');
+            this.btn.onClick = ((e) => {
+                this.pn = new Panel(this.viewer, this.viewer.container, 'searchPanel', 'search');
+                this.pn.setVisible(true);
+            }).bind(this);
+            this.btn.addClass('open-panel-button');
+            this.btn.setToolTip('open search panel');
+
+            
+            // SubToolbar
+            this.subToolbar = new Autodesk.Viewing.UI.ControlGroup('my-custom-toolbar');
+            this.subToolbar.addControl(this.btn);
+
+            toolbar.addControl(this.subToolbar);
+            };
     } 
     return PanelExt
 }

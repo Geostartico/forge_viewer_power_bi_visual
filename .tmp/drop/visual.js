@@ -24,6 +24,9 @@ class Isolator {
     }
     //TODO: make multithred
     searchAndIsolate(anames, avalues, isolate, zoom, paint) {
+        if (anames.length != avalues.length) {
+            throw new Error('the values and structs must be the same number');
+        }
         this.isolate = isolate;
         this.zoom = zoom;
         this.paint = paint;
@@ -121,13 +124,164 @@ class Isolator {
 
 /***/ }),
 
+/***/ 449:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "P": () => (/* binding */ visualConnectorExtension)
+/* harmony export */ });
+/**
+ * extension to allow the user to enter the values
+ * to select objects according to the selections on other visuals
+ **/
+function visualConnectorExtension() {
+    class Panel extends Autodesk.Viewing.UI.DockingPanel {
+        constructor(viewer, container, id, title, options = {}) {
+            super(container, id, title, options);
+            this.temp = ['', '', '', ''];
+            this.viewer = viewer;
+        }
+        initialize() {
+            this.container.style.top = "10px";
+            this.container.style.left = "10px";
+            this.container.style.width = "auto";
+            this.container.style.height = "auto";
+            this.container.style.resize = "auto";
+            // title bar
+            this.titleBar = this.createTitleBar(this.titleLabel || this.container.id);
+            this.container.appendChild(this.titleBar);
+            // close button
+            this.closeButton = this.createCloseButton();
+            this.container.appendChild(this.closeButton);
+            // allow move
+            this.initializeMoveHandlers(this.titleBar);
+            // the main content area
+            this.container.appendChild(this.createScrollContainer({}));
+            // footer
+            this.container.appendChild(this.createFooter());
+            //create div to contain the menu, containing a form with two fields: attributename and attributevalue and a button to commit
+            this.div = document.createElement('div');
+            this.form = document.createElement('form');
+            let txt = document.createElement("span");
+            txt.innerText = "column containing the id";
+            //text input for attributeName
+            this.id_column = document.createElement('input');
+            this.id_column.type = 'text';
+            this.id_column.id = 'id_column_input';
+            this.id_column.name = 'id column';
+            this.id_column.addEventListener('input', this.updateId_column.bind(this));
+            let txt2 = document.createElement('span');
+            txt2.innerText = 'id of the property in the model';
+            //text input for id_property
+            this.id_property = document.createElement('input');
+            this.id_property.type = 'text';
+            this.id_property.id = 'attributeValueInput';
+            this.id_property.name = 'attribute value';
+            this.id_property.addEventListener('input', this.updateId_property.bind(this));
+            let txt3 = document.createElement('span');
+            txt2.innerText = 'value-color associations';
+            //text input for id_property
+            this.value_colors = document.createElement('input');
+            this.value_colors.type = 'text';
+            this.value_colors.id = 'value_to_colors_input';
+            this.value_colors.name = 'value to colors';
+            this.value_colors.addEventListener('input', this.updateValueToColor.bind(this));
+            let txt4 = document.createElement('span');
+            txt2.innerText = 'column to read for value';
+            //text input for id_property
+            this.value_column = document.createElement('input');
+            this.value_column.type = 'text';
+            this.value_column.id = 'value_column_input';
+            this.value_column.name = 'column value';
+            this.value_column.addEventListener('input', this.updateValue_column.bind(this));
+            //submit Button
+            this.submitButton = document.createElement('input');
+            this.submitButton.type = 'submit';
+            this.submitButton.value = 'chainge config';
+            this.submitButton.addEventListener('click', this.onClickSubmit.bind(this));
+            //attach elements to form
+            this.form.appendChild(txt);
+            this.form.appendChild(this.id_column);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(txt2);
+            this.form.appendChild(this.id_property);
+            this.form.appendChild(document.createElement('br'));
+            this.form.appendChild(txt3);
+            this.form.appendChild(this.value_colors);
+            this.form.appendChild(txt4);
+            this.form.appendChild(this.value_column);
+            this.form.appendChild(this.submitButton);
+            this.form.appendChild(document.createElement('br'));
+            this.div.appendChild(this.form);
+            this.scrollContainer.appendChild(this.div);
+        }
+        onClickSubmit(event) {
+            this.id_column_string = this.temp[0];
+            this.id_property_string = this.temp[1];
+            this.value_column_string = this.temp[2];
+            this.value_colors_string = this.temp[3];
+        }
+        updateId_column(event) {
+            this.temp[0] = event.target.value;
+        }
+        updateId_property(event) {
+            this.temp[1] = event.target.value;
+        }
+        updateValue_column(event) {
+            this.temp[2] = event.target.value;
+        }
+        updateValueToColor(event) {
+            this.temp[3] = event.target.value;
+        }
+        getInput() {
+            return [this.id_column_string, this.id_property_string, this.value_column_string, this.value_colors_string];
+        }
+    }
+    class PanelExt extends Autodesk.Viewing.Extension {
+        constructor(viewer, options) {
+            super(viewer, options);
+        }
+        load() {
+            console.log("loading select config extension");
+            //this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
+            ////console.log(this.pn);
+            //this.pn.setVisible(true);
+            return true;
+        }
+        unload() {
+            console.log("unload DockingPanel");
+            return true;
+        }
+        onToolbarCreated(toolbar) {
+            var viewer = this.viewer;
+            // Button 1
+            this.btn = new Autodesk.Viewing.UI.Button('configButton');
+            this.btn.onClick = ((e) => {
+                this.pn = new Panel(this.viewer, this.viewer.container, 'configPanel', 'config');
+                this.pn.setVisible(true);
+            }).bind(this);
+            this.btn.addClass('open-config-panel-button');
+            this.btn.setToolTip('open config panel');
+            // SubToolbar
+            this.subToolbar = new Autodesk.Viewing.UI.ControlGroup('configToolbar');
+            this.subToolbar.addControl(this.btn);
+            toolbar.addControl(this.subToolbar);
+        }
+        ;
+    }
+    return PanelExt;
+}
+
+
+/***/ }),
+
 /***/ 323:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "V": () => (/* binding */ attributeParser)
+/* harmony export */   "V": () => (/* binding */ attributeParser),
+/* harmony export */   "n": () => (/* binding */ struct)
 /* harmony export */ });
-/* unused harmony export struct */
 /**
  * name format: [name1, name2, name3] (number, number, number, number); ... (the number must be between 0 and 256)
  * value format: val1, val2, val3 ...
@@ -358,15 +512,31 @@ function PanelExtension() {
         }
         load() {
             console.log("loading DockingPanel");
-            this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle');
-            console.log(this.pn);
-            this.pn.setVisible(true);
+            //this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
+            ////console.log(this.pn);
+            //this.pn.setVisible(true);
             return true;
         }
         unload() {
             console.log("unload DockingPanel");
             return true;
         }
+        onToolbarCreated(toolbar) {
+            var viewer = this.viewer;
+            // Button 1
+            this.btn = new Autodesk.Viewing.UI.Button('show-env-bg-button');
+            this.btn.onClick = ((e) => {
+                this.pn = new Panel(this.viewer, this.viewer.container, 'searchPanel', 'search');
+                this.pn.setVisible(true);
+            }).bind(this);
+            this.btn.addClass('open-panel-button');
+            this.btn.setToolTip('open search panel');
+            // SubToolbar
+            this.subToolbar = new Autodesk.Viewing.UI.ControlGroup('my-custom-toolbar');
+            this.subToolbar.addControl(this.btn);
+            toolbar.addControl(this.subToolbar);
+        }
+        ;
     }
     return PanelExt;
 }
@@ -382,6 +552,8 @@ function PanelExtension() {
 /* harmony export */ });
 /* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(931);
 /* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(438);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(323);
+/* harmony import */ var _VisualConnector_extension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(449);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -396,11 +568,24 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 //import {ExtensionGetter} from "./ExtensionGetter";
 
 
+
+
 let htmlText = 'no rendering?';
 let viewId = 'forge-viewer';
 let extensionid = 'selection_listener_extension';
 class Visual {
     constructor(options) {
+        //TODO: remove hardcoded, give option to modify
+        //the column name in the table where it is selected
+        this.id_column = 'Matricola';
+        //the value to read to deduce the color
+        this.value_column = 'AnnoManutenzione';
+        //the name of the model property corresponding to id_column
+        this.id_property = 'MATRICOLA';
+        //the values to associate a color
+        this.color_values = ['2021', '2020', '2019'];
+        //the colors to associate to the value, which will determine the color of the selected objects
+        this.colors = [[0, 256, 0, 256], [256, 256, 0, 256], [256, 0, 0, 256]];
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
@@ -438,12 +623,12 @@ class Visual {
         /*console.log('Visual update', options);
         console.log(options.dataViews);*/
         let cat = options.dataViews[0].categorical;
-        //console.log(cat.values[0]);
+        console.log(cat);
         let curcred = [this.client_id, this.client_secret, this.urn];
+        //changing credentials
         this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string' ? cat.values[0].values[0] : undefined;
         this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string' ? cat.values[1].values[0] : undefined;
         this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string' ? cat.values[2].values[0] : undefined;
-        //console.log(curcred, [this.client_id, this.client_secret, this.urn]);
         if (this.client_id != undefined && this.client_secret != undefined && this.urn != undefined) {
             if (this.forgeviewer === undefined) {
                 //console.log("strapped");
@@ -452,10 +637,9 @@ class Visual {
             }
             else {
                 console.info("updating");
-                let iso = new _Isolator__WEBPACK_IMPORTED_MODULE_0__/* .Isolator */ .B(this.forgeviewer);
-                let m = new Map();
-                m.set('Glass', [256, 0, 0, 256]);
-                iso.searchAndColorByValue('Material', 'Glass', 'Material', m);
+                //coloring based on the selection
+                this.isolateBySelection(cat);
+                //credentials changed
                 if (this.client_id != curcred[0]) {
                     console.info("changing account");
                     this.syncauth(() => {
@@ -465,6 +649,7 @@ class Visual {
                         this.initializeViewer(viewId);
                     });
                 }
+                //model changed
                 else if (this.urn != curcred[2]) {
                     Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
                 }
@@ -485,10 +670,18 @@ class Visual {
             yield this.getForgeviewerStyleAndSrc();
             Autodesk.Viewing.Initializer(options, () => {
                 console.log("getting started");
-                let config = { extensions: ['Autodesk.ViewCubeUi',
-                        /*extensionid*/ 'panel_extension'] };
+                let config = { extensions: [
+                        'Autodesk.ViewCubeUi',
+                        'panel_extension',
+                        'connector_extension'
+                    ]
+                };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
+                this.connector_extension = this.forgeviewer.getExtension('connector_extension');
+                this.isolator = new _Isolator__WEBPACK_IMPORTED_MODULE_0__/* .Isolator */ .B(this.forgeviewer);
+                this.maxrows = 0;
+                //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
             });
@@ -517,7 +710,9 @@ class Visual {
                     //let panelext = PanelExtension.SELECT_DESK(Autodesk);
                     //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
                     let panelext = (0,_panel_extension__WEBPACK_IMPORTED_MODULE_1__/* .PanelExtension */ .b)();
+                    let connectext = (0,_VisualConnector_extension__WEBPACK_IMPORTED_MODULE_2__/* .visualConnectorExtension */ .P)();
                     Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
+                    Autodesk.Viewing.theExtensionManager.registerExtension("connector_extension", connectext);
                     this.target.appendChild(forgeViewercss);
                     this.target.appendChild(forgeViewerDiv);
                     resolve();
@@ -538,6 +733,36 @@ class Visual {
         return __awaiter(this, void 0, void 0, function* () {
             this.forgeviewer.loadExtension(name).then((res) => { succcallback(res); });
         });
+    }
+    /**
+    * pass the options.categories used in the update function
+    * the model objects will be isolated/colored accordingly (see class parameters)
+    * **/
+    isolateBySelection(cat) {
+        let curModello;
+        let curValues;
+        for (let obj of cat.categories) {
+            if (obj.source.displayName === this.id_column) {
+                //to determine how many rows there are
+                if (obj.values.length > this.maxrows) {
+                    this.maxrows = obj.values.length;
+                }
+                else if (obj.values.length < this.maxrows && obj.values.length > 0) {
+                    curModello = obj.values.map((e) => { return e.toString(); });
+                }
+                curModello = obj.values.map((e) => { return e.toString(); });
+            }
+            else if (obj.source.displayName === this.value_column) {
+                curValues = obj.values.map((e) => { return e.toString(); });
+            }
+        }
+        let stru = [];
+        for (let val of curValues) {
+            let curcolor = this.color_values.indexOf(val) >= 0 ? this.colors[this.color_values.indexOf(val)] : [0, 0, 0, 0];
+            stru.push(new _attribute_parser__WEBPACK_IMPORTED_MODULE_3__/* .struct */ .n([this.id_property], curcolor));
+        }
+        console.log(stru, curModello);
+        this.isolator.searchAndIsolate(stru, curModello, true, true, true);
     }
 }
 

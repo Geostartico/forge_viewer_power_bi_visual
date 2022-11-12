@@ -9,6 +9,8 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 //import {ExtensionGetter} from "./ExtensionGetter";
 import {PanelExtension} from "./panel_extension";
 import {Isolator} from "./Isolator";
+import {struct} from "./attribute_parser";
+import {visualConnectorExtension} from './VisualConnector_extension';
 let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
 let extensionid : string = 'selection_listener_extension';
@@ -24,6 +26,20 @@ export class Visual implements IVisual {
     private autorefresh : boolean;
     private accessToken : string | undefined;
     private urn : string | undefined;
+    private maxrows : number;//if all rows are selected no coloring is made;
+    private isolator : Isolator;
+    private connector_extension : Autodesk.Viewing.Extension;
+    //TODO: remove hardcoded, give option to modify
+    //the column name in the table where it is selected
+    private id_column : string = 'Matricola';
+    //the value to read to deduce the color
+    private value_column : string = 'AnnoManutenzione';
+    //the name of the model property corresponding to id_column
+    private id_property : string = 'MATRICOLA';
+    //the values to associate a color
+    private color_values : string[] = ['2021', '2020', '2019'];
+    //the colors to associate to the value, which will determine the color of the selected objects
+    private colors : number[][] = [[0, 256, 0, 256], [256, 256, 0, 256], [256, 0, 0, 256]];
 
     constructor(options: VisualConstructorOptions) {
         console.log('Visual constructor', options);
@@ -68,13 +84,13 @@ export class Visual implements IVisual {
         /*console.log('Visual update', options);
         console.log(options.dataViews);*/
         let cat = options.dataViews[0].categorical;
-        //console.log(cat.values[0]);
+        console.log(cat);
         let curcred : string[] = [this.client_id, this.client_secret, this.urn];
-        this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string'  ? cat.values[0].values[0] as string : undefined; 
-        this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string'  ? cat.values[1].values[0] as string : undefined;
-        this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string'  ? cat.values[2].values[0] as string : undefined
+        //changing credentials
+        this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string'  ? <string>cat.values[0].values[0] : undefined; 
+        this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string'  ? <string>cat.values[1].values[0] : undefined;
+        this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string'  ? <string>cat.values[2].values[0] : undefined
 
-        //console.log(curcred, [this.client_id, this.client_secret, this.urn]);
 
         if(this.client_id != undefined && this.client_secret != undefined && this.urn != undefined){
             if(this.forgeviewer === undefined){
@@ -83,12 +99,11 @@ export class Visual implements IVisual {
                 this.syncauth(cl);
             }
             else{
-               console.info("updating");
-               let iso : Isolator = new Isolator(this.forgeviewer);
-               let m : Map<string, number[]> = new Map<string, number[]>();
-               m.set('Glass', [256, 0, 0, 256]);
-               iso.searchAndColorByValue('Material', 'Glass', 'Material', m)
-               if(this.client_id != curcred[0]){
+                console.info("updating");
+                //coloring based on the selection
+                this.isolateBySelection(cat);
+                //credentials changed
+                if(this.client_id != curcred[0]){
                    console.info("changing account");
                    this.syncauth(() => {
                        console.log("finished authenticating");
@@ -97,6 +112,7 @@ export class Visual implements IVisual {
                        this.initializeViewer(viewId);
                    });
                }
+               //model changed
                else if(this.urn != curcred[2]){
                    Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure)
                }
@@ -119,10 +135,19 @@ export class Visual implements IVisual {
 
         Autodesk.Viewing.Initializer(options, () =>{
                 console.log("getting started");
-                let config = {extensions: ['Autodesk.ViewCubeUi',
-                     /*extensionid*/'panel_extension']};
+                let config = {extensions: 
+                    [
+                    'Autodesk.ViewCubeUi',
+                    'panel_extension',
+                    'connector_extension'
+                    ]
+                };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
+                this.connector_extension = this.forgeviewer.getExtension('connector_extension');
+                this.isolator = new Isolator(this.forgeviewer);
+                this.maxrows = 0;
+                //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
             });
@@ -151,7 +176,9 @@ export class Visual implements IVisual {
                 //let panelext = PanelExtension.SELECT_DESK(Autodesk);
                 //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
                 let panelext = PanelExtension();
+                let connectext = visualConnectorExtension();
                 Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
+                Autodesk.Viewing.theExtensionManager.registerExtension("connector_extension", connectext);
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
                 resolve();
@@ -167,10 +194,43 @@ export class Visual implements IVisual {
         this.forgeviewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry())
 
     }
+
     private onLoadFailure(errorCode){
         console.log("load error: " + errorCode);
     }
+
     private async myloadExtension(name : string, succcallback : Function){
         this.forgeviewer.loadExtension(name).then((res) => {succcallback(res)});
     } 
+    /**
+    * pass the options.categories used in the update function
+    * the model objects will be isolated/colored accordingly (see class parameters)
+    * **/
+    private isolateBySelection(cat : powerbi.DataViewCategorical) : void{
+        let curModello : string[];
+        let curValues : string[];
+        for(let obj of cat.categories){
+            if(obj.source.displayName === this.id_column){
+                //to determine how many rows there are
+                if(obj.values.length > this.maxrows){
+                    this.maxrows = obj.values.length
+                }
+                else if(obj.values.length < this.maxrows && obj.values.length > 0){
+                    curModello = obj.values.map((e) => {return e.toString()})
+                }
+                curModello = obj.values.map((e) => {return e.toString()});
+            }
+            else if(obj.source.displayName === this.value_column){
+                curValues = obj.values.map((e) => {return e.toString()})
+            }
+        }
+        let stru : struct[] = [];
+        for(let val of curValues){
+            let curcolor = this.color_values.indexOf(val) >= 0 ? this.colors[this.color_values.indexOf(val)] : [0, 0, 0, 0];
+            stru.push(new struct([this.id_property], curcolor));
+        }
+        console.log(stru, curModello);
+        this.isolator.searchAndIsolate(stru, curModello, true, true, true)
+    }
+
 }
