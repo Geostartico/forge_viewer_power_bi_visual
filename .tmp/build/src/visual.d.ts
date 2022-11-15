@@ -22,6 +22,7 @@ export declare class Visual implements IVisual {
     private id_property;
     private color_values;
     private colors;
+    private colorStrings;
     constructor(options: VisualConstructorOptions);
     private syncauth;
     update(options: VisualUpdateOptions): void;
@@ -30,6 +31,7 @@ export declare class Visual implements IVisual {
     private onLoadSuccess;
     private onLoadFailure;
     private myloadExtension;
+    private mygetExtension;
     /**
     * pass the options.categories used in the update function
     * the model objects will be isolated/colored accordingly (see class parameters)

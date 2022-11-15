@@ -13,8 +13,40 @@ import {struct} from "./attribute_parser";
 import {visualConnectorExtension} from './VisualConnector_extension';
 let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
-let extensionid : string = 'selection_listener_extension';
+let extensionid : string = 'connector_extesnion';
+let colordict = {
+'White' :   [255, 255, 255, 256],
 
+'Silver':  [192, 192, 192, 256], 
+
+'Gray':    [128, 128, 128,256], 
+
+'Black':   [0  , 0  , 0  , 256], 
+
+'Red':     [255, 0  , 0  , 256], 
+
+'Maroon':  [128, 0  , 0  , 256], 
+
+'Yellow':  [255, 255, 0  , 256], 
+
+'Olive':   [128, 128, 0  , 256], 
+
+'Lime':    [0  , 255, 0  , 256], 
+
+'Green':   [0  , 128, 0  , 256], 
+
+'Aqua':    [0  , 255, 255, 256], 
+
+'Teal':    [0  , 128, 128, 256], 
+
+'Blue':    [0  , 0  , 255, 256], 
+
+'Navy':    [0  , 0  , 128, 256], 
+
+'Fuchsia': [255, 0  , 255, 256], 
+
+'Purple':  [128, 0  , 128, 256],
+}
 export class Visual implements IVisual {
     private target: HTMLElement;
     private updateCount: number;
@@ -28,7 +60,7 @@ export class Visual implements IVisual {
     private urn : string | undefined;
     private maxrows : number;//if all rows are selected no coloring is made;
     private isolator : Isolator;
-    private connector_extension : Autodesk.Viewing.Extension;
+    private connector_extension;
     //TODO: remove hardcoded, give option to modify
     //the column name in the table where it is selected
     private id_column : string = 'Matricola';
@@ -40,6 +72,7 @@ export class Visual implements IVisual {
     private color_values : string[] = ['2021', '2020', '2019'];
     //the colors to associate to the value, which will determine the color of the selected objects
     private colors : number[][] = [[0, 256, 0, 256], [256, 256, 0, 256], [256, 0, 0, 256]];
+    private colorStrings : string[] = ["Green", "Yellow", "Red"]
 
     constructor(options: VisualConstructorOptions) {
         console.log('Visual constructor', options);
@@ -139,17 +172,18 @@ export class Visual implements IVisual {
                     [
                     'Autodesk.ViewCubeUi',
                     'panel_extension',
-                    'connector_extension'
+                    extensionid
                     ]
                 };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
-                this.connector_extension = this.forgeviewer.getExtension('connector_extension');
+                //this.connector_extension = this.forgeviewer.getExtension('connector_extension');
                 this.isolator = new Isolator(this.forgeviewer);
                 this.maxrows = 0;
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
+                this.mygetExtension();
             });
     }
 
@@ -178,7 +212,7 @@ export class Visual implements IVisual {
                 let panelext = PanelExtension();
                 let connectext = visualConnectorExtension();
                 Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
-                Autodesk.Viewing.theExtensionManager.registerExtension("connector_extension", connectext);
+                Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, connectext);
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
                 resolve();
@@ -202,13 +236,59 @@ export class Visual implements IVisual {
     private async myloadExtension(name : string, succcallback : Function){
         this.forgeviewer.loadExtension(name).then((res) => {succcallback(res)});
     } 
+
+    private async mygetExtension(){
+        this.connector_extension = await this.forgeviewer.getExtension(extensionid);
+        console.log('connector extension', this.connector_extension);
+    }
     /**
     * pass the options.categories used in the update function
     * the model objects will be isolated/colored accordingly (see class parameters)
     * **/
-    private isolateBySelection(cat : powerbi.DataViewCategorical) : void{
+    private async isolateBySelection(cat : powerbi.DataViewCategorical){
         let curModello : string[];
         let curValues : string[];
+        if(!this.connector_extension){
+            await this.mygetExtension();
+        }
+        let arr : string[][] = this.connector_extension.getData();
+        for(let i = 0; i < arr.length; i ++){
+            switch(i){
+                case 0 :{
+                    if(arr[i][0] != ""){
+                        this.id_column = arr[i][0].trim(); 
+                    }
+                    break;
+                }
+                case 1 :{
+                    if(arr[i][0] != ""){
+                        this.id_property = arr[i][0].trim();
+                    }
+                    break;
+                }
+                case 2 :{
+                    if(arr[i][0] != ""){
+                        this.value_column = arr[i][0].trim()
+                    }
+                    break;
+                }
+                case 3 :{
+                    if(arr[i][0] != ""){
+                        this.color_values = [];
+                        this.colorStrings = [];
+                        for(let str of arr[i]){
+                            let couple = str.split(',');
+                            if(couple.length != 2){
+                                throw new Error('couples must be two comma separated strings');
+                            }
+                            this.colorStrings.push(couple[0].trim());
+                            this.color_values.push(couple[1].trim());
+                        }    
+                    } 
+                    break;
+                }
+            }
+        }
         for(let obj of cat.categories){
             if(obj.source.displayName === this.id_column){
                 //to determine how many rows there are
@@ -226,10 +306,10 @@ export class Visual implements IVisual {
         }
         let stru : struct[] = [];
         for(let val of curValues){
-            let curcolor = this.color_values.indexOf(val) >= 0 ? this.colors[this.color_values.indexOf(val)] : [0, 0, 0, 0];
+            let curcolor = this.color_values.indexOf(val) >= 0 ? colordict[this.colorStrings[this.color_values.indexOf(val)]] : [0, 0, 0, 0];
             stru.push(new struct([this.id_property], curcolor));
         }
-        console.log(stru, curModello);
+        //console.log(stru, curModello);
         this.isolator.searchAndIsolate(stru, curModello, true, true, true)
     }
 

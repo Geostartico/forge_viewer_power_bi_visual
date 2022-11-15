@@ -53,7 +53,7 @@ class Isolator {
                     for (let erty of prop.properties) {
                         if (erty.displayName.toUpperCase() == valueFieldUpper) {
                             if (valueToColor.has(erty.displayValue.toString())) {
-                                console.log(valueToColor.get(erty.displayValue.toString()));
+                                //console.log(valueToColor.get(erty.displayValue.toString()));
                                 let cl = valueToColor.get(erty.displayValue.toString()).map((e) => { return e / 256; });
                                 this.viewer.setThemingColor(db, new THREE.Vector4(cl[0], cl[1], cl[2], cl[3]), this.viewer.model, true);
                             }
@@ -77,7 +77,7 @@ class Isolator {
             }
         }
         this.curDone++;
-        console.log(this.curDone);
+        //console.log(this.curDone);
         //it's the last iteration, isolate and paint
         if (this.curDone === this.numOfNames) {
             this.clear();
@@ -139,6 +139,12 @@ function visualConnectorExtension() {
         constructor(viewer, container, id, title, options = {}) {
             super(container, id, title, options);
             this.temp = ['', '', '', ''];
+            /*id_column_string : string;
+            id_property_string : string;
+            value_column_string : string;
+            value_colors_string : string;
+            */
+            this.promptedString = ['', '', '', ''];
             this.viewer = viewer;
         }
         initialize() {
@@ -179,7 +185,7 @@ function visualConnectorExtension() {
             this.id_property.name = 'attribute value';
             this.id_property.addEventListener('input', this.updateId_property.bind(this));
             let txt3 = document.createElement('span');
-            txt2.innerText = 'value-color associations';
+            txt3.innerText = 'value-color associations';
             //text input for id_property
             this.value_colors = document.createElement('input');
             this.value_colors.type = 'text';
@@ -187,7 +193,7 @@ function visualConnectorExtension() {
             this.value_colors.name = 'value to colors';
             this.value_colors.addEventListener('input', this.updateValueToColor.bind(this));
             let txt4 = document.createElement('span');
-            txt2.innerText = 'column to read for value';
+            txt4.innerText = 'column to read for value';
             //text input for id_property
             this.value_column = document.createElement('input');
             this.value_column.type = 'text';
@@ -208,6 +214,7 @@ function visualConnectorExtension() {
             this.form.appendChild(document.createElement('br'));
             this.form.appendChild(txt3);
             this.form.appendChild(this.value_colors);
+            this.form.appendChild(document.createElement('br'));
             this.form.appendChild(txt4);
             this.form.appendChild(this.value_column);
             this.form.appendChild(this.submitButton);
@@ -216,10 +223,10 @@ function visualConnectorExtension() {
             this.scrollContainer.appendChild(this.div);
         }
         onClickSubmit(event) {
-            this.id_column_string = this.temp[0];
-            this.id_property_string = this.temp[1];
-            this.value_column_string = this.temp[2];
-            this.value_colors_string = this.temp[3];
+            this.promptedString[0] = this.temp[0];
+            this.promptedString[1] = this.temp[1];
+            this.promptedString[2] = this.temp[2];
+            this.promptedString[3] = this.temp[3];
         }
         updateId_column(event) {
             this.temp[0] = event.target.value;
@@ -234,12 +241,13 @@ function visualConnectorExtension() {
             this.temp[3] = event.target.value;
         }
         getInput() {
-            return [this.id_column_string, this.id_property_string, this.value_column_string, this.value_colors_string];
+            return this.promptedString;
         }
     }
     class PanelExt extends Autodesk.Viewing.Extension {
         constructor(viewer, options) {
             super(viewer, options);
+            this.str = ['', '', '', ''];
         }
         load() {
             console.log("loading select config extension");
@@ -259,6 +267,7 @@ function visualConnectorExtension() {
             this.btn.onClick = ((e) => {
                 this.pn = new Panel(this.viewer, this.viewer.container, 'configPanel', 'config');
                 this.pn.setVisible(true);
+                this.pn.promptedString = this.str;
             }).bind(this);
             this.btn.addClass('open-config-panel-button');
             this.btn.setToolTip('open config panel');
@@ -267,7 +276,11 @@ function visualConnectorExtension() {
             this.subToolbar.addControl(this.btn);
             toolbar.addControl(this.subToolbar);
         }
-        ;
+        //color values with syntax: color, value;...
+        getData() {
+            let couples = this.str[3].split(';').filter((word) => { return word != ""; });
+            return [[this.str[0]], [this.str[1]], [this.str[2]], couples.length === 0 ? [''] : couples];
+        }
     }
     return PanelExt;
 }
@@ -572,7 +585,25 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 let htmlText = 'no rendering?';
 let viewId = 'forge-viewer';
-let extensionid = 'selection_listener_extension';
+let extensionid = 'connector_extesnion';
+let colordict = {
+    'White': [255, 255, 255, 256],
+    'Silver': [192, 192, 192, 256],
+    'Gray': [128, 128, 128, 256],
+    'Black': [0, 0, 0, 256],
+    'Red': [255, 0, 0, 256],
+    'Maroon': [128, 0, 0, 256],
+    'Yellow': [255, 255, 0, 256],
+    'Olive': [128, 128, 0, 256],
+    'Lime': [0, 255, 0, 256],
+    'Green': [0, 128, 0, 256],
+    'Aqua': [0, 255, 255, 256],
+    'Teal': [0, 128, 128, 256],
+    'Blue': [0, 0, 255, 256],
+    'Navy': [0, 0, 128, 256],
+    'Fuchsia': [255, 0, 255, 256],
+    'Purple': [128, 0, 128, 256],
+};
 class Visual {
     constructor(options) {
         //TODO: remove hardcoded, give option to modify
@@ -586,6 +617,7 @@ class Visual {
         this.color_values = ['2021', '2020', '2019'];
         //the colors to associate to the value, which will determine the color of the selected objects
         this.colors = [[0, 256, 0, 256], [256, 256, 0, 256], [256, 0, 0, 256]];
+        this.colorStrings = ["Green", "Yellow", "Red"];
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
@@ -673,17 +705,18 @@ class Visual {
                 let config = { extensions: [
                         'Autodesk.ViewCubeUi',
                         'panel_extension',
-                        'connector_extension'
+                        extensionid
                     ]
                 };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
-                this.connector_extension = this.forgeviewer.getExtension('connector_extension');
+                //this.connector_extension = this.forgeviewer.getExtension('connector_extension');
                 this.isolator = new _Isolator__WEBPACK_IMPORTED_MODULE_0__/* .Isolator */ .B(this.forgeviewer);
                 this.maxrows = 0;
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
+                this.mygetExtension();
             });
         });
     }
@@ -712,7 +745,7 @@ class Visual {
                     let panelext = (0,_panel_extension__WEBPACK_IMPORTED_MODULE_1__/* .PanelExtension */ .b)();
                     let connectext = (0,_VisualConnector_extension__WEBPACK_IMPORTED_MODULE_2__/* .visualConnectorExtension */ .P)();
                     Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
-                    Autodesk.Viewing.theExtensionManager.registerExtension("connector_extension", connectext);
+                    Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, connectext);
                     this.target.appendChild(forgeViewercss);
                     this.target.appendChild(forgeViewerDiv);
                     resolve();
@@ -734,35 +767,84 @@ class Visual {
             this.forgeviewer.loadExtension(name).then((res) => { succcallback(res); });
         });
     }
+    mygetExtension() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.connector_extension = yield this.forgeviewer.getExtension(extensionid);
+            console.log('connector extension', this.connector_extension);
+        });
+    }
     /**
     * pass the options.categories used in the update function
     * the model objects will be isolated/colored accordingly (see class parameters)
     * **/
     isolateBySelection(cat) {
-        let curModello;
-        let curValues;
-        for (let obj of cat.categories) {
-            if (obj.source.displayName === this.id_column) {
-                //to determine how many rows there are
-                if (obj.values.length > this.maxrows) {
-                    this.maxrows = obj.values.length;
+        return __awaiter(this, void 0, void 0, function* () {
+            let curModello;
+            let curValues;
+            if (!this.connector_extension) {
+                yield this.mygetExtension();
+            }
+            let arr = this.connector_extension.getData();
+            for (let i = 0; i < arr.length; i++) {
+                switch (i) {
+                    case 0: {
+                        if (arr[i][0] != "") {
+                            this.id_column = arr[i][0].trim();
+                        }
+                        break;
+                    }
+                    case 1: {
+                        if (arr[i][0] != "") {
+                            this.id_property = arr[i][0].trim();
+                        }
+                        break;
+                    }
+                    case 2: {
+                        if (arr[i][0] != "") {
+                            this.value_column = arr[i][0].trim();
+                        }
+                        break;
+                    }
+                    case 3: {
+                        if (arr[i][0] != "") {
+                            this.color_values = [];
+                            this.colorStrings = [];
+                            for (let str of arr[i]) {
+                                let couple = str.split(',');
+                                if (couple.length != 2) {
+                                    throw new Error('couples must be two comma separated strings');
+                                }
+                                this.colorStrings.push(couple[0].trim());
+                                this.color_values.push(couple[1].trim());
+                            }
+                        }
+                        break;
+                    }
                 }
-                else if (obj.values.length < this.maxrows && obj.values.length > 0) {
+            }
+            for (let obj of cat.categories) {
+                if (obj.source.displayName === this.id_column) {
+                    //to determine how many rows there are
+                    if (obj.values.length > this.maxrows) {
+                        this.maxrows = obj.values.length;
+                    }
+                    else if (obj.values.length < this.maxrows && obj.values.length > 0) {
+                        curModello = obj.values.map((e) => { return e.toString(); });
+                    }
                     curModello = obj.values.map((e) => { return e.toString(); });
                 }
-                curModello = obj.values.map((e) => { return e.toString(); });
+                else if (obj.source.displayName === this.value_column) {
+                    curValues = obj.values.map((e) => { return e.toString(); });
+                }
             }
-            else if (obj.source.displayName === this.value_column) {
-                curValues = obj.values.map((e) => { return e.toString(); });
+            let stru = [];
+            for (let val of curValues) {
+                let curcolor = this.color_values.indexOf(val) >= 0 ? colordict[this.colorStrings[this.color_values.indexOf(val)]] : [0, 0, 0, 0];
+                stru.push(new _attribute_parser__WEBPACK_IMPORTED_MODULE_3__/* .struct */ .n([this.id_property], curcolor));
             }
-        }
-        let stru = [];
-        for (let val of curValues) {
-            let curcolor = this.color_values.indexOf(val) >= 0 ? this.colors[this.color_values.indexOf(val)] : [0, 0, 0, 0];
-            stru.push(new _attribute_parser__WEBPACK_IMPORTED_MODULE_3__/* .struct */ .n([this.id_property], curcolor));
-        }
-        console.log(stru, curModello);
-        this.isolator.searchAndIsolate(stru, curModello, true, true, true);
+            //console.log(stru, curModello);
+            this.isolator.searchAndIsolate(stru, curModello, true, true, true);
+        });
     }
 }
 

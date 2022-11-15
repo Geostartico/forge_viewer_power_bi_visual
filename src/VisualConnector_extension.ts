@@ -17,10 +17,12 @@ export function visualConnectorExtension(){
         titleBar : any;
         closeButton : any;
         temp : string[] = ['', '', '', ''];
-        id_column_string : string;
+        /*id_column_string : string;
         id_property_string : string;
         value_column_string : string;
         value_colors_string : string;
+        */
+        promptedString : string[] = ['', '', '', '']
 
 
         constructor(viewer, container, id, title, options = {}) {
@@ -76,7 +78,7 @@ export function visualConnectorExtension(){
             this.id_property.addEventListener('input', this.updateId_property.bind(this)) 
 
             let txt3 = document.createElement('span');
-            txt2.innerText = 'value-color associations';
+            txt3.innerText = 'value-color associations';
             
             //text input for id_property
             this.value_colors = document.createElement('input');
@@ -86,7 +88,7 @@ export function visualConnectorExtension(){
             this.value_colors.addEventListener('input', this.updateValueToColor.bind(this)) 
 
             let txt4 = document.createElement('span');
-            txt2.innerText = 'column to read for value';
+            txt4.innerText = 'column to read for value';
             
             //text input for id_property
             this.value_column = document.createElement('input');
@@ -110,6 +112,7 @@ export function visualConnectorExtension(){
             this.form.appendChild(document.createElement('br'));
             this.form.appendChild(txt3)
             this.form.appendChild(this.value_colors)
+            this.form.appendChild(document.createElement('br'));
             this.form.appendChild(txt4);
             this.form.appendChild(this.value_column);
             this.form.appendChild(this.submitButton);
@@ -120,10 +123,10 @@ export function visualConnectorExtension(){
         }
 
         private onClickSubmit(event : Event){
-            this.id_column_string = this.temp[0];
-            this.id_property_string = this.temp[1];
-            this.value_column_string = this.temp[2];
-            this.value_colors_string = this.temp[3];
+            this.promptedString[0] = this.temp[0];
+            this.promptedString[1] = this.temp[1];
+            this.promptedString[2] = this.temp[2];
+            this.promptedString[3] = this.temp[3];
         }
 
         private updateId_column(event : Event){
@@ -141,7 +144,7 @@ export function visualConnectorExtension(){
         }
 
         public getInput() : string[]{
-            return [this.id_column_string, this.id_property_string, this.value_column_string, this.value_colors_string]
+            return this.promptedString
         } 
     }
 
@@ -150,6 +153,7 @@ export function visualConnectorExtension(){
         pn : Panel;
         btn : Autodesk.Viewing.UI.Button;
         subToolbar : Autodesk.Viewing.UI.ToolBar;
+        str : string[] = ['', '', '', '']
 
         constructor(viewer, options){
             super(viewer, options);
@@ -177,6 +181,7 @@ export function visualConnectorExtension(){
             this.btn.onClick = ((e) => {
                 this.pn = new Panel(this.viewer, this.viewer.container, 'configPanel', 'config');
                 this.pn.setVisible(true);
+                this.pn.promptedString = this.str;
             }).bind(this);
             this.btn.addClass('open-config-panel-button');
             this.btn.setToolTip('open config panel');
@@ -187,7 +192,13 @@ export function visualConnectorExtension(){
             this.subToolbar.addControl(this.btn);
 
             toolbar.addControl(this.subToolbar);
-            };
+        }
+        //color values with syntax: color, value;...
+        public getData() : string[][] {
+            let couples = this.str[3].split(';').filter((word) => {return word != ""});
+            return [[this.str[0]], [this.str[1]], [this.str[2]], couples.length === 0 ? [''] : couples];
+        }
+
     } 
     return PanelExt
 }

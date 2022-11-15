@@ -54,7 +54,7 @@ export class Isolator{
                     for(let erty of prop.properties){
                         if(erty.displayName.toUpperCase() == valueFieldUpper){
                             if(valueToColor.has(erty.displayValue.toString())){
-                                console.log(valueToColor.get(erty.displayValue.toString()));
+                                //console.log(valueToColor.get(erty.displayValue.toString()));
                                 let cl = valueToColor.get(erty.displayValue.toString()).map((e) => {return e/256});
                                 this.viewer.setThemingColor(db, new THREE.Vector4(cl[0], cl[1], cl[2], cl[3]), this.viewer.model, true);
                             }
@@ -80,7 +80,7 @@ export class Isolator{
             }
         }
         this.curDone++;
-        console.log(this.curDone);
+        //console.log(this.curDone);
         //it's the last iteration, isolate and paint
         if(this.curDone === this.numOfNames){
             this.clear();
