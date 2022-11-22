@@ -14,7 +14,7 @@ export class Isolator{
     paint : boolean;
     hide : boolean;
     mutexOnfunction : Mutex = new Mutex();
-    mutexOnParameters : Mutex = new Mutex
+    mutexOnParameters : Mutex = new Mutex();
     
     constructor(aviewer : Autodesk.Viewing.Viewer3D){
         this.viewer = aviewer;
@@ -29,7 +29,6 @@ export class Isolator{
     }
 
     //elements where the avalues[i] is contained in the property fields anames.names[i].names, according to the color anames.names[i].color
-    //TODO: make multithred
     public async searchAndIsolate(anames : struct[], avalues : string[], isolate : boolean, zoom : boolean, paint : boolean, hide : boolean) : Promise<void>{
         await this.mutexOnfunction.acquire();
         this.clear();
@@ -87,7 +86,7 @@ export class Isolator{
 
     private async succcallback(dbids : number[]){
         //insert new dbids and associate them with the correct color
-        this.mutexOnParameters.acquire();
+        await this.mutexOnParameters.acquire();
         for(let i of  dbids){
             this.curDbids.add(i);
             if(!this.dbidToColor.has(i)){

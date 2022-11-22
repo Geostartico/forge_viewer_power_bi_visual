@@ -26,7 +26,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 class Isolator {
     constructor(aviewer) {
         this.mutexOnfunction = new async_mutex__WEBPACK_IMPORTED_MODULE_0__/* .Mutex */ .WU();
-        this.mutexOnParameters = new async_mutex__WEBPACK_IMPORTED_MODULE_0__/* .Mutex */ .WU;
+        this.mutexOnParameters = new async_mutex__WEBPACK_IMPORTED_MODULE_0__/* .Mutex */ .WU();
         this.viewer = aviewer;
     }
     //clears all modifications
@@ -37,7 +37,6 @@ class Isolator {
         this.viewer.fitToView();
     }
     //elements where the avalues[i] is contained in the property fields anames.names[i].names, according to the color anames.names[i].color
-    //TODO: make multithred
     searchAndIsolate(anames, avalues, isolate, zoom, paint, hide) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.mutexOnfunction.acquire();
@@ -94,7 +93,7 @@ class Isolator {
     succcallback(dbids) {
         return __awaiter(this, void 0, void 0, function* () {
             //insert new dbids and associate them with the correct color
-            this.mutexOnParameters.acquire();
+            yield this.mutexOnParameters.acquire();
             for (let i of dbids) {
                 this.curDbids.add(i);
                 if (!this.dbidToColor.has(i)) {
