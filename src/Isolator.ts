@@ -1,5 +1,6 @@
 import {struct} from './attribute_parser'
 import {isolateFunction} from './isolateFunction'
+import {Mutex} from 'async-mutex';
 //class to isolate, color, zoom and hide elements
 export class Isolator{
     curDbids : Set<number>;
@@ -12,6 +13,8 @@ export class Isolator{
     zoom : boolean;
     paint : boolean;
     hide : boolean;
+    mutexOnfunction : Mutex = new Mutex();
+    mutexOnParameters : Mutex = new Mutex
     
     constructor(aviewer : Autodesk.Viewing.Viewer3D){
         this.viewer = aviewer;
@@ -27,7 +30,8 @@ export class Isolator{
 
     //elements where the avalues[i] is contained in the property fields anames.names[i].names, according to the color anames.names[i].color
     //TODO: make multithred
-    public searchAndIsolate(anames : struct[], avalues : string[], isolate : boolean, zoom : boolean, paint : boolean, hide : boolean) : void{
+    public async searchAndIsolate(anames : struct[], avalues : string[], isolate : boolean, zoom : boolean, paint : boolean, hide : boolean) : Promise<void>{
+        await this.mutexOnfunction.acquire();
         this.clear();
         if(anames.length === 0){
             return;
@@ -44,7 +48,9 @@ export class Isolator{
         this.numOfNames = anames.length;
         this.curDone = 0;
         this.searchParam = {names : anames, vals : avalues}
-        this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, {searchHidden: true, includeInherited: true});
+        for(let i = 0; i < this.searchParam.vals.length; i ++){
+            this.viewer.search('"' + this.searchParam.vals[i] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[i].names, {searchHidden: true, includeInherited: true});
+        }
 
     }
 
@@ -79,8 +85,9 @@ export class Isolator{
         this.viewer.search('"' + keyword + '"', succcallback2.bind(this), this.errCallback, [field], {searchHidden: true, includeInherited: true});
     } 
 
-    private succcallback(dbids : number[]){
+    private async succcallback(dbids : number[]){
         //insert new dbids and associate them with the correct color
+        this.mutexOnParameters.acquire();
         for(let i of  dbids){
             this.curDbids.add(i);
             if(!this.dbidToColor.has(i)){
@@ -113,11 +120,9 @@ export class Isolator{
             if(this.zoom){
                 this.viewer.fitToView(Array.from(this.curDbids.values()));
             }
+            this.mutexOnfunction.release();
         }
-        //not all iterations where done, calls search for the next parameter
-        else{
-            this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, {searchHidden: true, includeInherited: true});
-        }
+        this.mutexOnParameters.release()
     }
 
     private errCallback(err){

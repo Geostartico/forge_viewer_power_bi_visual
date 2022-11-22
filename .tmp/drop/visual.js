@@ -9,39 +9,61 @@ var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG;
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "B": () => (/* binding */ Isolator)
 /* harmony export */ });
-/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(303);
+/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(303);
+/* harmony import */ var async_mutex__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(643);
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 
-//refactoring of the function to paint and 
+
+//class to isolate, color, zoom and hide elements
 class Isolator {
     constructor(aviewer) {
+        this.mutexOnfunction = new async_mutex__WEBPACK_IMPORTED_MODULE_0__/* .Mutex */ .WU();
+        this.mutexOnParameters = new async_mutex__WEBPACK_IMPORTED_MODULE_0__/* .Mutex */ .WU;
         this.viewer = aviewer;
     }
+    //clears all modifications
     clear() {
         this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
         this.viewer.isolate();
         this.viewer.clearThemingColors(this.viewer.model);
         this.viewer.fitToView();
     }
+    //elements where the avalues[i] is contained in the property fields anames.names[i].names, according to the color anames.names[i].color
     //TODO: make multithred
     searchAndIsolate(anames, avalues, isolate, zoom, paint, hide) {
-        this.clear();
-        if (anames.length === 0) {
-            return;
-        }
-        if (anames.length != avalues.length) {
-            throw new Error('the values and structs must be the same number');
-        }
-        this.isolate = isolate;
-        this.zoom = zoom;
-        this.paint = paint;
-        this.hide = hide;
-        this.curDbids = new Set();
-        this.dbidToColor = new Map();
-        this.numOfNames = anames.length;
-        this.curDone = 0;
-        this.searchParam = { names: anames, vals: avalues };
-        this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, { searchHidden: true, includeInherited: true });
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.mutexOnfunction.acquire();
+            this.clear();
+            if (anames.length === 0) {
+                return;
+            }
+            if (anames.length != avalues.length) {
+                throw new Error('the values and structs must be the same number');
+            }
+            this.isolate = isolate;
+            this.zoom = zoom;
+            this.paint = paint;
+            this.hide = hide;
+            this.curDbids = new Set();
+            this.dbidToColor = new Map();
+            this.numOfNames = anames.length;
+            this.curDone = 0;
+            this.searchParam = { names: anames, vals: avalues };
+            for (let i = 0; i < this.searchParam.vals.length; i++) {
+                this.viewer.search('"' + this.searchParam.vals[i] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[i].names, { searchHidden: true, includeInherited: true });
+            }
+        });
     }
+    //accidentally implemented this function misunderstanding a feature
+    //it colors based on the value of a property
     searchAndColorByValue(field, keyword, valueField, valueToColor, clearPrev = true) {
         this.curDbids = new Set();
         if (clearPrev) {
@@ -65,47 +87,50 @@ class Isolator {
                     }
                 }, this.errCallback);
             }
-            (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(dbids, this.viewer.model.getInstanceTree(), this.viewer, this.hide);
+            (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_1__/* .isolateFunction */ .O)(dbids, this.viewer.model.getInstanceTree(), this.viewer, this.hide);
         };
         this.viewer.search('"' + keyword + '"', succcallback2.bind(this), this.errCallback, [field], { searchHidden: true, includeInherited: true });
     }
     succcallback(dbids) {
-        //insert new dbids
-        for (let i of dbids) {
-            this.curDbids.add(i);
-            if (!this.dbidToColor.has(i)) {
-                this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
+        return __awaiter(this, void 0, void 0, function* () {
+            //insert new dbids and associate them with the correct color
+            this.mutexOnParameters.acquire();
+            for (let i of dbids) {
+                this.curDbids.add(i);
+                if (!this.dbidToColor.has(i)) {
+                    this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
+                }
+                else {
+                    //the same dbid could satisfy more than one condition
+                    this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
+                }
             }
-            else {
-                this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
+            this.curDone++;
+            //it's the last iteration, isolate and paint
+            if (this.curDone === this.numOfNames) {
+                console.log("FATTO");
+                this.clear();
+                let tree = this.viewer.model.getInstanceTree();
+                //isolate
+                if (this.isolate) {
+                    (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_1__/* .isolateFunction */ .O)(Array.from(this.curDbids.values()), tree, this.viewer, this.hide);
+                }
+                //paint
+                if (this.paint) {
+                    this.dbidToColor.forEach((colors, num) => {
+                        //averages the colors that should color the object
+                        let avgcolor = this.average(colors, 256);
+                        let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
+                        this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true);
+                    });
+                }
+                if (this.zoom) {
+                    this.viewer.fitToView(Array.from(this.curDbids.values()));
+                }
+                this.mutexOnfunction.release();
             }
-        }
-        this.curDone++;
-        //console.log(this.curDone);
-        //it's the last iteration, isolate and paint
-        if (this.curDone === this.numOfNames) {
-            console.log("FATTO");
-            this.clear();
-            let tree = this.viewer.model.getInstanceTree();
-            //isolate
-            if (this.isolate) {
-                (0,_isolateFunction__WEBPACK_IMPORTED_MODULE_0__/* .isolateFunction */ .O)(Array.from(this.curDbids.values()), tree, this.viewer, this.hide);
-            }
-            //paint
-            if (this.paint) {
-                this.dbidToColor.forEach((colors, num) => {
-                    let avgcolor = this.average(colors, 256);
-                    let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
-                    this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true);
-                });
-            }
-            if (this.zoom) {
-                this.viewer.fitToView(Array.from(this.curDbids.values()));
-            }
-        }
-        else {
-            this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, { searchHidden: true, includeInherited: true });
-        }
+            this.mutexOnParameters.release();
+        });
     }
     errCallback(err) {
         console.log('an error has occured during search', err);
@@ -146,6 +171,7 @@ class struct {
         this.color = nm;
     }
 }
+//used by the panel extension to parse the given parameters
 function attributeParser(attributeVals, attributeNames) {
     let dividedvals = parseVals(attributeVals);
     let divideNames = parseNames(attributeNames);
@@ -214,6 +240,7 @@ function parseColor(str) {
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "O": () => (/* binding */ isolateFunction)
 /* harmony export */ });
+//used to isolate the elements identified by the id
 function isolateFunction(dbIds, tree /*instance tree*/, viewer, hide) {
     console.log("dbIds: ", dbIds);
     let leafIDs = getLeaves(dbIds, tree);
@@ -262,6 +289,7 @@ function getLeaves(dbIds, tree) {
  * in the code for which i don't have an exact explanation
  * **/
 function PanelExtension() {
+    //actual panel to insert the query
     class Panel extends Autodesk.Viewing.UI.DockingPanel {
         constructor(viewer, container, id, title, options = {}) {
             super(container, id, title, options);
@@ -343,6 +371,7 @@ function PanelExtension() {
             this.attrValue = event.target.value;
             console.log("attribute value: ", this.attrValue);
         }
+        //performs query when the form is submitted
         onClickSubmit(event) {
             this.clear();
             this.searchParam = (0,_attribute_parser__WEBPACK_IMPORTED_MODULE_1__/* .attributeParser */ .V)(this.attrValue, this.attrName);
@@ -362,21 +391,20 @@ function PanelExtension() {
             this.isol.clear();
         }
     }
+    //extension of the viewer to implement the panel
     class PanelExt extends Autodesk.Viewing.Extension {
         constructor(viewer, options) {
             super(viewer, options);
         }
         load() {
             console.log("loading DockingPanel");
-            //this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
-            ////console.log(this.pn);
-            //this.pn.setVisible(true);
             return true;
         }
         unload() {
             console.log("unload DockingPanel");
             return true;
         }
+        //initializes ui elements 
         onToolbarCreated(toolbar) {
             var viewer = this.viewer;
             // Button 1
@@ -406,8 +434,8 @@ function PanelExtension() {
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "u": () => (/* binding */ Visual)
 /* harmony export */ });
-/* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(931);
-/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(438);
+/* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(931);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(438);
 /* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(323);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -429,8 +457,6 @@ let htmlText = 'no rendering?';
 let viewId = 'forge-viewer';
 let extensionid = 'connector_extension';
 //strings used to identify the columns(the user can rename them to match these)
-let key_field = "key_field";
-let settings = "actions";
 let color_value = "value_color";
 let value_ref = "value_ref";
 let color_ref = "color_ref";
@@ -438,76 +464,32 @@ let R = "R";
 let G = "G";
 let B = "B";
 let I = "I";
-let hidden_column = "hidden";
 let value_column = "value";
-let client_id_column = "client_id";
-let client_secret_column = "client_secret";
-let urn_column = "urn";
-/*let colordict = {
-'White' :   [255, 255, 255, 256],
-
-'Silver':  [192, 192, 192, 256],
-
-'Gray':    [128, 128, 128,256],
-
-'Black':   [0  , 0  , 0  , 256],
-
-'Red':     [255, 0  , 0  , 256],
-
-'Maroon':  [128, 0  , 0  , 256],
-
-'Yellow':  [255, 255, 0  , 256],
-
-'Olive':   [128, 128, 0  , 256],
-
-'Lime':    [0  , 255, 0  , 256],
-
-'Green':   [0  , 128, 0  , 256],
-
-'Aqua':    [0  , 255, 255, 256],
-
-'Teal':    [0  , 128, 128, 256],
-
-'Blue':    [0  , 0  , 255, 256],
-
-'Navy':    [0  , 0  , 128, 256],
-
-'Fuchsia': [255, 0  , 255, 256],
-
-'Purple':  [128, 0  , 128, 256],
-}*/
 class Visual {
     constructor(options) {
+        //options of the selection
         this.zoom = true;
         this.color = true;
         this.isolate = true;
         this.hidden = true;
-        /**
-         *  id_column e id_property devono diventare una, chiamiamo MATRICOLA perchè deve corrispondere, key_field in cui è contenuto
-         *  colori inseriti in una tabella (facciamo nome Color, R rosso, G verde, B blue, I intensità)
-         *  associazioni colore-valore da tabella (facciamo color, value)
-         *  da implementare azioni(primo bit zoom, secondo isola, terzo colore)(chiamiamo actions)
-         *  implementa hide o non hide da colonna hidden
-         * **/
-        //the column name in the table where it is selected
-        this.id_column = 'Matricola';
-        //the name of the model property corresponding to id_column
+        //the column name in the table where it is selected, must match the name of the actual model property
+        this.id_column = '';
+        //color to RGBI representation
         this.colorDict = new Map();
+        //value of the column to the name of the color
         this.value_to_color = new Map();
+        this.pulledCode = false;
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
         this.target.innerText = htmlText;
-        //this.client_id = client_id;
-        //this.client_secret = client_secret;
         console.log(this.target);
-        //let cl = () => {console.log("finished authenticating"); this.initializeViewer(viewId)}; 
-        //this.syncauth(cl);
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
     }
+    //method used to authenticate from syncronous functions
     syncauth(succcallback) {
         return __awaiter(this, void 0, void 0, function* () {
-            //console.log("authenticate");
+            //fetching the access token
             let fetched = yield fetch("https://developer.api.autodesk.com/authentication/v1/authenticate", {
                 method: "POST",
                 headers: {
@@ -522,23 +504,26 @@ class Visual {
             });
             let jason = yield fetched.json();
             this.accessToken = jason.access_token;
-            //console.log("reached end of authentication");
-            //console.log(this.accessToken);
+            //calls the callback given in case of success
             succcallback();
         });
     }
+    //called by power BI when something is changed in the report
     update(options) {
-        //console.log('Visual update', options);
+        //where the tables given by the user are passed
         let cat = options.dataViews[0].categorical;
         console.log(cat);
+        //saves the credentials before they are updated
         let curcred = [this.client_id, this.client_secret, this.urn];
         //changing parameters
         this.updateParameters(cat);
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
+        //at some point the credentials where set
         if (this.client_id != undefined && this.client_secret != undefined && this.urn != undefined) {
+            //the forge viewer was invalidated(wrong credentials) or it was never initialized
             if (this.forgeviewer === undefined) {
-                //console.log("strapped");
-                let cl = () => { /*console.log("finished authenticating")*/ ; this.initializeViewer(viewId); };
+                //when the authentication is finished the viewer is initialized
+                let cl = () => { this.initializeViewer(viewId); };
                 this.syncauth(cl);
             }
             else {
@@ -546,10 +531,9 @@ class Visual {
                 //coloring based on the selection
                 this.isolateBySelection(cat);
                 //credentials changed
-                if (this.client_id != curcred[0]) {
+                if (this.client_id != curcred[0] || this.client_secret != curcred[1]) {
                     console.info("changing account");
                     this.syncauth(() => {
-                        console.log("finished authenticating");
                         this.forgeviewer.finish();
                         this.forgeviewer = undefined;
                         this.initializeViewer(viewId);
@@ -565,6 +549,7 @@ class Visual {
     initializeViewer(viewerDiv) {
         return __awaiter(this, void 0, void 0, function* () {
             let aT = this.accessToken;
+            //options for the viewer initialization
             let options = {
                 env: 'AutodeskProduction',
                 api: 'derivativeV2',
@@ -573,9 +558,15 @@ class Visual {
                     onTokenReady(aT, timeInSeconds);
                 }
             };
-            yield this.getForgeviewerStyleAndSrc();
+            //gets the needed code and the css to initialize the viewer
+            if (!this.pulledCode) {
+                yield this.getForgeviewerStyleAndSrc();
+                this.pulledCode = true;
+            }
+            //function used to initialize viewer
             Autodesk.Viewing.Initializer(options, () => {
                 console.log("getting started");
+                //specifies extensions to load in the viewer
                 let config = { extensions: [
                         'Autodesk.ViewCubeUi',
                         'panel_extension'
@@ -583,20 +574,22 @@ class Visual {
                 };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
-                this.isolator = new _Isolator__WEBPACK_IMPORTED_MODULE_0__/* .Isolator */ .B(this.forgeviewer);
-                this.maxrows = 0;
+                this.isolator = new _Isolator__WEBPACK_IMPORTED_MODULE_1__/* .Isolator */ .B(this.forgeviewer);
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
+                //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
             });
         });
     }
+    //fetched needed js and css code for the viewer to run
     getForgeviewerStyleAndSrc() {
         return __awaiter(this, void 0, void 0, function* () {
             console.log("getting style");
             return new Promise((resolve, reject) => {
                 let forgeViewerStyle = "https://developer.api.autodesk.com/modelderivative/v2/viewers/style.min.css";
                 let forgeViewerSrc = "https://developer.api.autodesk.com/modelderivative/v2/viewers/viewer3D.js";
+                //might be needed to run the viewer on chrome, currently doesn't work
                 //let securityIssue = document.createElement('meta');
                 let forgeViewerjs = document.createElement("script");
                 let forgeViewercss = document.createElement("link");
@@ -608,40 +601,37 @@ class Visual {
                 forgeViewercss.rel = 'stylesheet';
                 forgeViewercss.type = 'text/css';
                 forgeViewerDiv.id = viewId;
+                //the code must be loaded in order for the next operations to work correctly, therefore the code is run only after the loading is finished
                 forgeViewerjs.onload = () => {
                     console.log("script loaded");
-                    //let extension = ExtensionGetter.SelectDesk(Autodesk);
-                    //let panelext = PanelExtension.SELECT_DESK(Autodesk);
-                    //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
-                    let panelext = (0,_panel_extension__WEBPACK_IMPORTED_MODULE_1__/* .PanelExtension */ .b)();
-                    //let connectext = visualConnectorExtension();
+                    let panelext = (0,_panel_extension__WEBPACK_IMPORTED_MODULE_0__/* .PanelExtension */ .b)();
+                    //registers the user defined extensions
                     Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
-                    //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, connectext);
+                    //appends css and the div of the viewer to target div
                     this.target.appendChild(forgeViewercss);
                     this.target.appendChild(forgeViewerDiv);
                     resolve();
                 };
                 //document.head.appendChild(securityIssue);
+                //appedns js to the target div
                 this.target.appendChild(forgeViewerjs);
             });
         });
     }
+    //function callsed when the document is loaded correctly
     onLoadSuccess(doc) {
         console.log("SUCCESS");
+        //loads the document on the viewer, visualising it
         this.forgeviewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
     }
+    //generic function used in case of error
     onLoadFailure(errorCode) {
         console.log("load error: " + errorCode);
     }
+    //used in case a command must be run on an extension
     myloadExtension(name, succcallback) {
         return __awaiter(this, void 0, void 0, function* () {
             this.forgeviewer.loadExtension(name).then((res) => { succcallback(res); });
-        });
-    }
-    mygetExtension() {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.connector_extension = yield this.forgeviewer.getExtension(extensionid);
-            console.log('connector extension', this.connector_extension);
         });
     }
     /**
@@ -694,6 +684,7 @@ class Visual {
                     }
                 }
             }*/
+            //retrieves the columns of the value to determine the color and the identifier of the color
             for (let obj of cat.categories) {
                 if (obj.source.displayName === this.id_column) {
                     curModello = obj.values.map((e) => { return e.toString(); });
@@ -704,6 +695,7 @@ class Visual {
                     console.log("values found: ", curValues);
                 }
             }
+            //creates data structures used by isolator
             let stru = [];
             if (curValues != undefined) {
                 for (let val of curValues) {
@@ -711,19 +703,24 @@ class Visual {
                     stru.push(new _attribute_parser__WEBPACK_IMPORTED_MODULE_2__/* .struct */ .n([this.id_column], curcolor));
                 }
             }
+            //the isolator highlights the given models (determined by the id), according to the set options
             this.isolator.searchAndIsolate(stru, curModello, this.isolate, this.zoom, this.color, this.hidden);
         });
     }
+    //updates the parameters using the passed columns
     updateParameters(cat) {
         console.log("updating parameters");
         let RGBI = [[], [], [], []];
         let color_reference = [];
         let value_reference = [];
         let value_color = [];
+        //updates credentials
         this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string' ? cat.values[0].values[0] : undefined;
         this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string' ? cat.values[1].values[0] : undefined;
         this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string' ? cat.values[2].values[0] : undefined;
+        //updates the name of the column identifying the id
         this.id_column = cat.values[4].values[0] instanceof String || typeof cat.values[4].values[0] === 'string' ? cat.values[4].values[0] : undefined;
+        //column determining if the highlighted elements are hidden completely or not
         this.hidden = cat.values[5].values[0] != undefined ? cat.values[5].values[0].toString() === '1' : false;
         console.log("updated credentials");
         //update actions
@@ -735,40 +732,51 @@ class Visual {
         }
         for (let val of cat.categories) {
             let displayName = val.source.displayName;
+            //Red column
             if (displayName === R) {
                 RGBI[0] = val.values.map((e) => { return Number(e.toString()); });
             }
+            //green column
             if (displayName === G) {
                 RGBI[1] = val.values.map((e) => { return Number(e.toString()); });
             }
+            //blue column
             if (displayName === B) {
                 RGBI[2] = val.values.map((e) => { return Number(e.toString()); });
             }
+            //intensity column
             if (displayName === I) {
                 RGBI[3] = val.values.map((e) => { return Number(e.toString()); });
             }
+            //color column
             if (displayName === color_ref) {
                 color_reference = val.values.map((e) => { return e.toString(); });
             }
+            //value column associated to the color
             if (displayName === value_ref) {
                 value_reference = val.values.map((e) => { return e.toString(); });
             }
+            //color associated to the value
             if (displayName === color_value) {
                 value_color = val.values.map((e) => { return e.toString(); });
             }
         }
+        //checking if all the columns are given
         let length = color_reference.length;
         let samelength = true;
         for (let tmp of RGBI) {
             samelength = length === tmp.length;
         }
         if (samelength) {
+            //inserting the colors in a map
             for (let i = 0; i < length; i++) {
                 this.colorDict.set(color_reference[i], [RGBI[0][i], RGBI[1][i], RGBI[2][i], RGBI[3][i]]);
             }
             console.log(this.colorDict);
         }
+        //if both the color and the value are given
         if (value_color.length === value_reference.length) {
+            //inserts the associations value-color in a map
             for (let i = 0; i < value_color.length; i++) {
                 this.value_to_color.set(value_reference[i], value_color[i]);
             }
@@ -784,6 +792,245 @@ class Visual {
 /***/ ((module) => {
 
 module.exports = Function('return this')();
+
+/***/ }),
+
+/***/ 643:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "WU": () => (/* binding */ Mutex)
+/* harmony export */ });
+/* unused harmony exports E_ALREADY_LOCKED, E_CANCELED, E_TIMEOUT, Semaphore, tryAcquire, withTimeout */
+const E_TIMEOUT = new Error('timeout while waiting for mutex to become available');
+const E_ALREADY_LOCKED = new Error('mutex already locked');
+const E_CANCELED = new Error('request for lock canceled');
+
+var __awaiter$2 = ( false) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+class Semaphore {
+    constructor(_value, _cancelError = E_CANCELED) {
+        this._value = _value;
+        this._cancelError = _cancelError;
+        this._weightedQueues = [];
+        this._weightedWaiters = [];
+    }
+    acquire(weight = 1) {
+        if (weight <= 0)
+            throw new Error(`invalid weight ${weight}: must be positive`);
+        return new Promise((resolve, reject) => {
+            if (!this._weightedQueues[weight - 1])
+                this._weightedQueues[weight - 1] = [];
+            this._weightedQueues[weight - 1].push({ resolve, reject });
+            this._dispatch();
+        });
+    }
+    runExclusive(callback, weight = 1) {
+        return __awaiter$2(this, void 0, void 0, function* () {
+            const [value, release] = yield this.acquire(weight);
+            try {
+                return yield callback(value);
+            }
+            finally {
+                release();
+            }
+        });
+    }
+    waitForUnlock(weight = 1) {
+        if (weight <= 0)
+            throw new Error(`invalid weight ${weight}: must be positive`);
+        return new Promise((resolve) => {
+            if (!this._weightedWaiters[weight - 1])
+                this._weightedWaiters[weight - 1] = [];
+            this._weightedWaiters[weight - 1].push(resolve);
+            this._dispatch();
+        });
+    }
+    isLocked() {
+        return this._value <= 0;
+    }
+    getValue() {
+        return this._value;
+    }
+    setValue(value) {
+        this._value = value;
+        this._dispatch();
+    }
+    release(weight = 1) {
+        if (weight <= 0)
+            throw new Error(`invalid weight ${weight}: must be positive`);
+        this._value += weight;
+        this._dispatch();
+    }
+    cancel() {
+        this._weightedQueues.forEach((queue) => queue.forEach((entry) => entry.reject(this._cancelError)));
+        this._weightedQueues = [];
+    }
+    _dispatch() {
+        var _a;
+        for (let weight = this._value; weight > 0; weight--) {
+            const queueEntry = (_a = this._weightedQueues[weight - 1]) === null || _a === void 0 ? void 0 : _a.shift();
+            if (!queueEntry)
+                continue;
+            const previousValue = this._value;
+            const previousWeight = weight;
+            this._value -= weight;
+            weight = this._value + 1;
+            queueEntry.resolve([previousValue, this._newReleaser(previousWeight)]);
+        }
+        this._drainUnlockWaiters();
+    }
+    _newReleaser(weight) {
+        let called = false;
+        return () => {
+            if (called)
+                return;
+            called = true;
+            this.release(weight);
+        };
+    }
+    _drainUnlockWaiters() {
+        for (let weight = this._value; weight > 0; weight--) {
+            if (!this._weightedWaiters[weight - 1])
+                continue;
+            this._weightedWaiters[weight - 1].forEach((waiter) => waiter());
+            this._weightedWaiters[weight - 1] = [];
+        }
+    }
+}
+
+var __awaiter$1 = ( false) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+class Mutex {
+    constructor(cancelError) {
+        this._semaphore = new Semaphore(1, cancelError);
+    }
+    acquire() {
+        return __awaiter$1(this, void 0, void 0, function* () {
+            const [, releaser] = yield this._semaphore.acquire();
+            return releaser;
+        });
+    }
+    runExclusive(callback) {
+        return this._semaphore.runExclusive(() => callback());
+    }
+    isLocked() {
+        return this._semaphore.isLocked();
+    }
+    waitForUnlock() {
+        return this._semaphore.waitForUnlock();
+    }
+    release() {
+        if (this._semaphore.isLocked())
+            this._semaphore.release();
+    }
+    cancel() {
+        return this._semaphore.cancel();
+    }
+}
+
+var __awaiter = ( false) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+function withTimeout(sync, timeout, timeoutError = E_TIMEOUT) {
+    return {
+        acquire: (weight) => {
+            if (weight !== undefined && weight <= 0) {
+                throw new Error(`invalid weight ${weight}: must be positive`);
+            }
+            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                let isTimeout = false;
+                const handle = setTimeout(() => {
+                    isTimeout = true;
+                    reject(timeoutError);
+                }, timeout);
+                try {
+                    const ticket = yield sync.acquire(weight);
+                    if (isTimeout) {
+                        const release = Array.isArray(ticket) ? ticket[1] : ticket;
+                        release();
+                    }
+                    else {
+                        clearTimeout(handle);
+                        resolve(ticket);
+                    }
+                }
+                catch (e) {
+                    if (!isTimeout) {
+                        clearTimeout(handle);
+                        reject(e);
+                    }
+                }
+            }));
+        },
+        runExclusive(callback, weight) {
+            return __awaiter(this, void 0, void 0, function* () {
+                let release = () => undefined;
+                try {
+                    const ticket = yield this.acquire(weight);
+                    if (Array.isArray(ticket)) {
+                        release = ticket[1];
+                        return yield callback(ticket[0]);
+                    }
+                    else {
+                        release = ticket;
+                        return yield callback();
+                    }
+                }
+                finally {
+                    release();
+                }
+            });
+        },
+        release(weight) {
+            sync.release(weight);
+        },
+        cancel() {
+            return sync.cancel();
+        },
+        waitForUnlock: (weight) => {
+            if (weight !== undefined && weight <= 0) {
+                throw new Error(`invalid weight ${weight}: must be positive`);
+            }
+            return new Promise((resolve, reject) => {
+                sync.waitForUnlock(weight).then(resolve);
+                setTimeout(() => reject(timeoutError), timeout);
+            });
+        },
+        isLocked: () => sync.isLocked(),
+        getValue: () => sync.getValue(),
+        setValue: (value) => sync.setValue(value),
+    };
+}
+
+// eslint-disable-next-lisne @typescript-eslint/explicit-module-boundary-types
+function tryAcquire(sync, alreadyAcquiredError = E_ALREADY_LOCKED) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return withTimeout(sync, 0, alreadyAcquiredError);
+}
+
+
+
 
 /***/ })
 
