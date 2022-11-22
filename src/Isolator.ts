@@ -11,6 +11,7 @@ export class Isolator{
     isolate : boolean;
     zoom : boolean;
     paint : boolean;
+    hide : boolean;
     
     constructor(aviewer : Autodesk.Viewing.Viewer3D){
         this.viewer = aviewer;
@@ -22,20 +23,25 @@ export class Isolator{
         this.viewer.clearThemingColors(this.viewer.model);
         this.viewer.fitToView();
     }
+
     //TODO: make multithred
-    public searchAndIsolate(anames : struct[], avalues : string[], isolate : boolean, zoom : boolean, paint : boolean) : void{
+    public searchAndIsolate(anames : struct[], avalues : string[], isolate : boolean, zoom : boolean, paint : boolean, hide : boolean) : void{
+        this.clear();
+        if(anames.length === 0){
+            return;
+        }
         if(anames.length != avalues.length){
             throw new Error('the values and structs must be the same number');
         }
         this.isolate = isolate;
         this.zoom = zoom;
         this.paint = paint;
+        this.hide = hide;
         this.curDbids = new Set<number>();
         this.dbidToColor = new Map<number, number[][]>();
         this.numOfNames = anames.length;
         this.curDone = 0;
         this.searchParam = {names : anames, vals : avalues}
-        this.clear();
         this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, {searchHidden: true, includeInherited: true});
 
     }
@@ -63,7 +69,7 @@ export class Isolator{
                 }, 
                 this.errCallback)
             }
-            isolateFunction(dbids, this.viewer.model.getInstanceTree(), this.viewer)
+            isolateFunction(dbids, this.viewer.model.getInstanceTree(), this.viewer, this.hide)
         }
         this.viewer.search('"' + keyword + '"', succcallback2.bind(this), this.errCallback, [field], {searchHidden: true, includeInherited: true});
     } 
@@ -83,11 +89,12 @@ export class Isolator{
         //console.log(this.curDone);
         //it's the last iteration, isolate and paint
         if(this.curDone === this.numOfNames){
+            console.log("FATTO");
             this.clear();
             let tree = this.viewer.model.getInstanceTree();
             //isolate
             if(this.isolate){
-                isolateFunction(Array.from(this.curDbids.values()), tree, this.viewer);
+                isolateFunction(Array.from(this.curDbids.values()), tree, this.viewer, this.hide);
             }
             //paint
             if(this.paint){

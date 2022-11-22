@@ -1,4 +1,4 @@
-export function isolateFunction(dbIds : number[], tree : any/*instance tree*/, viewer){
+export function isolateFunction(dbIds : number[], tree : any/*instance tree*/, viewer, hide : boolean){
     console.log("dbIds: ", dbIds);
     let leafIDs = getLeaves(dbIds, tree); 
     let allIds = getLeaves([tree.getRootId()], tree)
@@ -6,8 +6,10 @@ export function isolateFunction(dbIds : number[], tree : any/*instance tree*/, v
     console.log("unwanted: ", unwanted);
     console.log('leaves', leafIDs);
     viewer.isolate(leafIDs);
-    for(let i of unwanted){
-        viewer.impl.visibilityManager.setNodeOff(i, true);
+    if(hide){
+        for(let i of unwanted){
+            viewer.impl.visibilityManager.setNodeOff(i, true);
+        }
     }
 }
 function getLeaves(dbIds : number[], tree){

@@ -13,9 +13,10 @@ export declare class Isolator {
     isolate: boolean;
     zoom: boolean;
     paint: boolean;
+    hide: boolean;
     constructor(aviewer: Autodesk.Viewing.Viewer3D);
     clear(): void;
-    searchAndIsolate(anames: struct[], avalues: string[], isolate: boolean, zoom: boolean, paint: boolean): void;
+    searchAndIsolate(anames: struct[], avalues: string[], isolate: boolean, zoom: boolean, paint: boolean, hide: boolean): void;
     searchAndColorByValue(field: string, keyword: string, valueField: string, valueToColor: Map<string, number[]>, clearPrev?: boolean): void;
     private succcallback;
     private errCallback;

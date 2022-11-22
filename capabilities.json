@@ -19,8 +19,23 @@
             "displayName": "Forge Client Secret",
             "name": "forge_client_secret",
             "kind": "Measure"
+        },
+        {
+            "displayName": "Actions",
+            "name": "forge_actions",
+            "kind": "Measure"
+        },
+        {
+            "displayName": "id column",
+            "name": "id_column",
+            "kind": "Measure"
+        },
+        {
+            "displayName": "hidden",
+            "name": "hidden",
+            "kind": "Measure"
         }
-    ],
+        ],
     "objects": {
         "dataPoint": {
             "displayName": "Data colors",
@@ -71,14 +86,17 @@
     "dataViewMappings": [
         {
             "categorical": {
-                "categories": {
-                    "for": {
-                        "in": "property"
-                    },
-                    "dataReductionAlgorithm": {
-                        "top": {}
+                "categories": 
+                    {
+                        "for": {
+                                "in": "property"
+                        },
+                        "dataReductionAlgorithm": {
+                            "top": {}
+                        }
                     }
-                },
+                ,
+
                 "values": {
                     "select": [                        
                         {
@@ -94,6 +112,21 @@
                         {
                             "bind": {
                                 "to": "forge_client_secret"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "forge_actions"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "id_column"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "hidden"
                             }
                         }
                     ]

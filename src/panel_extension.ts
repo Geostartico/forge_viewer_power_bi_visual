@@ -139,7 +139,7 @@ export function PanelExtension(){
             this.numOfNames = this.searchParam.vals.length;
             this.dbidToColor = new Map<number, number[][]>();
             this.curDbids = new Set<number>();
-            this.isol.searchAndIsolate(this.searchParam.names, this.searchParam.vals, true, true, true);
+            this.isol.searchAndIsolate(this.searchParam.names, this.searchParam.vals, true, true, true, true);
         }
         //restores model visibility to default
         private clear(event : Event = null){

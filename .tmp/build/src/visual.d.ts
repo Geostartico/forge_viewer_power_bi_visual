@@ -17,12 +17,20 @@ export declare class Visual implements IVisual {
     private maxrows;
     private isolator;
     private connector_extension;
+    private zoom;
+    private color;
+    private isolate;
+    private hidden;
+    /**
+     *  id_column e id_property devono diventare una, chiamiamo MATRICOLA perchè deve corrispondere, key_field in cui è contenuto
+     *  colori inseriti in una tabella (facciamo nome Color, R rosso, G verde, B blue, I intensità)
+     *  associazioni colore-valore da tabella (facciamo color, value)
+     *  da implementare azioni(primo bit zoom, secondo isola, terzo colore)(chiamiamo actions)
+     *  implementa hide o non hide da colonna hidden
+     * **/
     private id_column;
-    private value_column;
-    private id_property;
-    private color_values;
-    private colors;
-    private colorStrings;
+    private colorDict;
+    private value_to_color;
     constructor(options: VisualConstructorOptions);
     private syncauth;
     update(options: VisualUpdateOptions): void;
@@ -37,4 +45,5 @@ export declare class Visual implements IVisual {
     * the model objects will be isolated/colored accordingly (see class parameters)
     * **/
     private isolateBySelection;
+    private updateParameters;
 }

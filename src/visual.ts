@@ -10,11 +10,26 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 import {PanelExtension} from "./panel_extension";
 import {Isolator} from "./Isolator";
 import {struct} from "./attribute_parser";
-import {visualConnectorExtension} from './VisualConnector_extension';
+//import {visualConnectorExtension} from './VisualConnector_extension';
 let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
-let extensionid : string = 'connector_extesnion';
-let colordict = {
+let extensionid : string = 'connector_extension';
+//strings used to identify the columns(the user can rename them to match these)
+let key_field = "key_field";
+let settings = "actions";
+let color_value = "value_color";
+let value_ref = "value_ref";
+let color_ref = "color_ref";
+let R = "R";
+let G = "G";
+let B = "B";
+let I = "I";
+let hidden_column = "hidden";
+let value_column = "value";
+let client_id_column = "client_id";
+let client_secret_column = "client_secret";
+let urn_column = "urn";
+/*let colordict = {
 'White' :   [255, 255, 255, 256],
 
 'Silver':  [192, 192, 192, 256], 
@@ -46,7 +61,7 @@ let colordict = {
 'Fuchsia': [255, 0  , 255, 256], 
 
 'Purple':  [128, 0  , 128, 256],
-}
+}*/
 export class Visual implements IVisual {
     private target: HTMLElement;
     private updateCount: number;
@@ -61,18 +76,22 @@ export class Visual implements IVisual {
     private maxrows : number;//if all rows are selected no coloring is made;
     private isolator : Isolator;
     private connector_extension;
-    //TODO: remove hardcoded, give option to modify
+    private zoom : boolean = true;
+    private color : boolean = true;
+    private isolate : boolean = true;
+    private hidden : boolean = true;
+    /**
+     *  id_column e id_property devono diventare una, chiamiamo MATRICOLA perchè deve corrispondere, key_field in cui è contenuto
+     *  colori inseriti in una tabella (facciamo nome Color, R rosso, G verde, B blue, I intensità)
+     *  associazioni colore-valore da tabella (facciamo color, value)
+     *  da implementare azioni(primo bit zoom, secondo isola, terzo colore)(chiamiamo actions)
+     *  implementa hide o non hide da colonna hidden
+     * **/
     //the column name in the table where it is selected
     private id_column : string = 'Matricola';
-    //the value to read to deduce the color
-    private value_column : string = 'AnnoManutenzione';
     //the name of the model property corresponding to id_column
-    private id_property : string = 'MATRICOLA';
-    //the values to associate a color
-    private color_values : string[] = ['2021', '2020', '2019'];
-    //the colors to associate to the value, which will determine the color of the selected objects
-    private colors : number[][] = [[0, 256, 0, 256], [256, 256, 0, 256], [256, 0, 0, 256]];
-    private colorStrings : string[] = ["Green", "Yellow", "Red"]
+    private colorDict : Map<string, number[]> = new Map<string, number[]>();
+    private value_to_color : Map<string, string> = new Map<string, string>();
 
     constructor(options: VisualConstructorOptions) {
         console.log('Visual constructor', options);
@@ -114,17 +133,13 @@ export class Visual implements IVisual {
 
 
     public update(options: VisualUpdateOptions) {
-        /*console.log('Visual update', options);
-        console.log(options.dataViews);*/
+        //console.log('Visual update', options);
         let cat = options.dataViews[0].categorical;
         console.log(cat);
         let curcred : string[] = [this.client_id, this.client_secret, this.urn];
-        //changing credentials
-        this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string'  ? <string>cat.values[0].values[0] : undefined; 
-        this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string'  ? <string>cat.values[1].values[0] : undefined;
-        this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string'  ? <string>cat.values[2].values[0] : undefined
-
-
+        //changing parameters
+        this.updateParameters(cat);
+        console.log("credentials", [this.urn, this.client_id, this.client_secret]);
         if(this.client_id != undefined && this.client_secret != undefined && this.urn != undefined){
             if(this.forgeviewer === undefined){
                 //console.log("strapped");
@@ -171,19 +186,16 @@ export class Visual implements IVisual {
                 let config = {extensions: 
                     [
                     'Autodesk.ViewCubeUi',
-                    'panel_extension',
-                    extensionid
+                    'panel_extension'
                     ]
                 };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
-                //this.connector_extension = this.forgeviewer.getExtension('connector_extension');
                 this.isolator = new Isolator(this.forgeviewer);
                 this.maxrows = 0;
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
-                this.mygetExtension();
             });
     }
 
@@ -210,9 +222,9 @@ export class Visual implements IVisual {
                 //let panelext = PanelExtension.SELECT_DESK(Autodesk);
                 //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
                 let panelext = PanelExtension();
-                let connectext = visualConnectorExtension();
+                //let connectext = visualConnectorExtension();
                 Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
-                Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, connectext);
+                //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, connectext);
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
                 resolve();
@@ -246,9 +258,10 @@ export class Visual implements IVisual {
     * the model objects will be isolated/colored accordingly (see class parameters)
     * **/
     private async isolateBySelection(cat : powerbi.DataViewCategorical){
+        //colora di default, in caso aggiungeremo funzione per resettare
         let curModello : string[];
         let curValues : string[];
-        if(!this.connector_extension){
+        /*if(!this.connector_extension){
             await this.mygetExtension();
         }
         let arr : string[][] = this.connector_extension.getData();
@@ -288,29 +301,91 @@ export class Visual implements IVisual {
                     break;
                 }
             }
-        }
+        }*/
         for(let obj of cat.categories){
             if(obj.source.displayName === this.id_column){
-                //to determine how many rows there are
-                if(obj.values.length > this.maxrows){
-                    this.maxrows = obj.values.length
-                }
-                else if(obj.values.length < this.maxrows && obj.values.length > 0){
-                    curModello = obj.values.map((e) => {return e.toString()})
-                }
                 curModello = obj.values.map((e) => {return e.toString()});
+                console.log("ids found: ", curModello);
             }
-            else if(obj.source.displayName === this.value_column){
-                curValues = obj.values.map((e) => {return e.toString()})
+            else if(obj.source.displayName === value_column){
+                curValues = obj.values.map((e) => {return e.toString()});
+                console.log("values found: ", curValues);
             }
         }
         let stru : struct[] = [];
-        for(let val of curValues){
-            let curcolor = this.color_values.indexOf(val) >= 0 ? colordict[this.colorStrings[this.color_values.indexOf(val)]] : [0, 0, 0, 0];
-            stru.push(new struct([this.id_property], curcolor));
+        if(curValues != undefined){
+            for(let val of curValues){
+                let curcolor = this.value_to_color.has(val)? this.colorDict.get(this.value_to_color.get(val)) : [0, 0, 0, 0];
+                stru.push(new struct([this.id_column], curcolor));
+            }
         }
-        //console.log(stru, curModello);
-        this.isolator.searchAndIsolate(stru, curModello, true, true, true)
+        this.isolator.searchAndIsolate(stru, curModello, this.isolate, this.zoom, this.color, this.hidden)
+    }
+
+    private updateParameters(cat : powerbi.DataViewCategorical){
+        console.log("updating parameters");
+        let RGBI : number[][] = [[], [], [], []];
+        let color_reference : string[] = [];
+        let value_reference : string[] = [];
+        let value_color : string[] = [];
+        this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string'  ? <string>cat.values[0].values[0] : undefined; 
+        this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string'  ? <string>cat.values[1].values[0] : undefined;
+        this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string'  ? <string>cat.values[2].values[0] : undefined
+        this.id_column = cat.values[4].values[0] instanceof String || typeof cat.values[4].values[0] === 'string'  ? <string>cat.values[4].values[0] : undefined
+        this.hidden = cat.values[5].values[0] != undefined ? cat.values[5].values[0].toString() === '1' : false;
+        console.log("updated credentials")
+
+        //update actions
+        let sett = Number(cat.values[3].values[0].toString());
+        if(sett != -1){
+            this.zoom = sett % 2 === 1;
+            this.isolate = (sett >> 1) % 2 === 1;
+            this.color = (sett >> 2) % 2 === 1;
+        }
+
+        for(let val of cat.categories){
+            let displayName = val.source.displayName;
+            if(displayName === R){
+               RGBI[0] = val.values.map((e) => {return Number(e.toString())});
+            }
+            if(displayName === G){
+               RGBI[1] = val.values.map((e) => {return Number(e.toString())}); 
+            }
+            if(displayName === B){
+               RGBI[2] = val.values.map((e) => {return Number(e.toString())}); 
+            }
+            if(displayName === I){
+               RGBI[3] = val.values.map((e) => {return Number(e.toString())}); 
+            }
+            if(displayName === color_ref){
+                color_reference = val.values.map((e) => {return e.toString()});
+            }
+            if(displayName === value_ref){
+                value_reference = val.values.map((e) => {return e.toString()});
+            }
+            if(displayName === color_value){
+                value_color = val.values.map((e) => {return e.toString()});
+            }
+
+            
+        }
+        let length = color_reference.length
+        let samelength = true;
+        for(let tmp of RGBI){
+            samelength = length === tmp.length;
+        }
+        if(samelength){
+            for(let i = 0; i < length; i ++){
+                this.colorDict.set(color_reference[i], [RGBI[0][i], RGBI[1][i], RGBI[2][i], RGBI[3][i]])
+            }
+            console.log(this.colorDict);
+        }
+        if(value_color.length === value_reference.length){
+            for(let i = 0; i < value_color.length; i ++){
+                this.value_to_color.set(value_reference[i], value_color[i])
+            }
+            console.log(this.value_to_color);
+        }
     }
 
 }
