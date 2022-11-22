@@ -8,6 +8,7 @@ import {Isolator} from './Isolator';
  * in the code for which i don't have an exact explanation
  * **/
 export function PanelExtension(){
+    //actual panel to insert the query
     class Panel extends Autodesk.Viewing.UI.DockingPanel{
         attrName: string;
         attrValue: string;
@@ -126,6 +127,7 @@ export function PanelExtension(){
             console.log("attribute value: ", this.attrValue);
         }
 
+        //performs query when the form is submitted
         private onClickSubmit(event : Event){
             this.clear();
             this.searchParam = attributeParser(this.attrValue,this.attrName);
@@ -149,6 +151,7 @@ export function PanelExtension(){
         
     }
 
+    //extension of the viewer to implement the panel
     class PanelExt extends Autodesk.Viewing.Extension{
 
         pn : Panel;
@@ -159,11 +162,9 @@ export function PanelExtension(){
             super(viewer, options);
         }
 
+
         public load() : boolean{
             console.log("loading DockingPanel");
-            //this.pn = new Panel(this.viewer, this.viewer.container, 'panelID', 'panelTitle') 
-            ////console.log(this.pn);
-            //this.pn.setVisible(true);
             return true;
         } 
 
@@ -172,6 +173,7 @@ export function PanelExtension(){
             return true;
         }
 
+        //initializes ui elements 
         public onToolbarCreated(toolbar : Autodesk.Viewing.UI.ToolBar){
             var viewer = this.viewer;
 

@@ -15,8 +15,6 @@ let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
 let extensionid : string = 'connector_extension';
 //strings used to identify the columns(the user can rename them to match these)
-let key_field = "key_field";
-let settings = "actions";
 let color_value = "value_color";
 let value_ref = "value_ref";
 let color_ref = "color_ref";
@@ -24,90 +22,42 @@ let R = "R";
 let G = "G";
 let B = "B";
 let I = "I";
-let hidden_column = "hidden";
 let value_column = "value";
-let client_id_column = "client_id";
-let client_secret_column = "client_secret";
-let urn_column = "urn";
-/*let colordict = {
-'White' :   [255, 255, 255, 256],
-
-'Silver':  [192, 192, 192, 256], 
-
-'Gray':    [128, 128, 128,256], 
-
-'Black':   [0  , 0  , 0  , 256], 
-
-'Red':     [255, 0  , 0  , 256], 
-
-'Maroon':  [128, 0  , 0  , 256], 
-
-'Yellow':  [255, 255, 0  , 256], 
-
-'Olive':   [128, 128, 0  , 256], 
-
-'Lime':    [0  , 255, 0  , 256], 
-
-'Green':   [0  , 128, 0  , 256], 
-
-'Aqua':    [0  , 255, 255, 256], 
-
-'Teal':    [0  , 128, 128, 256], 
-
-'Blue':    [0  , 0  , 255, 256], 
-
-'Navy':    [0  , 0  , 128, 256], 
-
-'Fuchsia': [255, 0  , 255, 256], 
-
-'Purple':  [128, 0  , 128, 256],
-}*/
 export class Visual implements IVisual {
     private target: HTMLElement;
-    private updateCount: number;
-    private textNode: Text;
     private pbioptions: VisualConstructorOptions;
     private forgeviewer : Autodesk.Viewing.GuiViewer3D;
     private client_id : string | undefined;
     private client_secret : string | undefined;
-    private autorefresh : boolean;
     private accessToken : string | undefined;
+    //urn of the model to be shown
     private urn : string | undefined;
-    private maxrows : number;//if all rows are selected no coloring is made;
+    //object used to isalate, color, zoom on objects
     private isolator : Isolator;
-    private connector_extension;
+    //options of the selection
     private zoom : boolean = true;
     private color : boolean = true;
     private isolate : boolean = true;
-    private hidden : boolean = true;
-    /**
-     *  id_column e id_property devono diventare una, chiamiamo MATRICOLA perchè deve corrispondere, key_field in cui è contenuto
-     *  colori inseriti in una tabella (facciamo nome Color, R rosso, G verde, B blue, I intensità)
-     *  associazioni colore-valore da tabella (facciamo color, value)
-     *  da implementare azioni(primo bit zoom, secondo isola, terzo colore)(chiamiamo actions)
-     *  implementa hide o non hide da colonna hidden
-     * **/
-    //the column name in the table where it is selected
-    private id_column : string = 'Matricola';
-    //the name of the model property corresponding to id_column
+    private hidden : boolean = true
+    //the column name in the table where it is selected, must match the name of the actual model property
+    private id_column : string = '';
+    //color to RGBI representation
     private colorDict : Map<string, number[]> = new Map<string, number[]>();
+    //value of the column to the name of the color
     private value_to_color : Map<string, string> = new Map<string, string>();
+    private pulledCode = false;
 
     constructor(options: VisualConstructorOptions) {
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
         this.target.innerText = htmlText;
-        //this.client_id = client_id;
-        //this.client_secret = client_secret;
         console.log(this.target); 
-        //let cl = () => {console.log("finished authenticating"); this.initializeViewer(viewId)}; 
-        //this.syncauth(cl);
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
     }
-
+    //method used to authenticate from syncronous functions
     private async syncauth(succcallback : Function){
-        //console.log("authenticate");
+        //fetching the access token
         let fetched = await fetch(
             "https://developer.api.autodesk.com/authentication/v1/authenticate",
             {
@@ -123,27 +73,28 @@ export class Visual implements IVisual {
                 })
             }
         )
-
         let jason = await fetched.json();
         this.accessToken = jason.access_token;
-        //console.log("reached end of authentication");
-        //console.log(this.accessToken);
+        //calls the callback given in case of success
         succcallback();
     }
 
-
+    //called by power BI when something is changed in the report
     public update(options: VisualUpdateOptions) {
-        //console.log('Visual update', options);
+        //where the tables given by the user are passed
         let cat = options.dataViews[0].categorical;
         console.log(cat);
+        //saves the credentials before they are updated
         let curcred : string[] = [this.client_id, this.client_secret, this.urn];
         //changing parameters
         this.updateParameters(cat);
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
+        //at some point the credentials where set
         if(this.client_id != undefined && this.client_secret != undefined && this.urn != undefined){
+            //the forge viewer was invalidated(wrong credentials) or it was never initialized
             if(this.forgeviewer === undefined){
-                //console.log("strapped");
-                let cl = () => {/*console.log("finished authenticating")*/; this.initializeViewer(viewId)}; 
+                //when the authentication is finished the viewer is initialized
+                let cl = () => {this.initializeViewer(viewId)}; 
                 this.syncauth(cl);
             }
             else{
@@ -151,10 +102,9 @@ export class Visual implements IVisual {
                 //coloring based on the selection
                 this.isolateBySelection(cat);
                 //credentials changed
-                if(this.client_id != curcred[0]){
+                if(this.client_id != curcred[0] || this.client_secret != curcred[1]){
                    console.info("changing account");
                    this.syncauth(() => {
-                       console.log("finished authenticating");
                        this.forgeviewer.finish();
                        this.forgeviewer = undefined;
                        this.initializeViewer(viewId);
@@ -170,6 +120,7 @@ export class Visual implements IVisual {
 
     public async initializeViewer(viewerDiv : string) : Promise<void>{
         let aT = this.accessToken;
+        //options for the viewer initialization
         let options = {
         env: 'AutodeskProduction',
         api: 'derivativeV2', 
@@ -178,11 +129,15 @@ export class Visual implements IVisual {
             onTokenReady(aT, timeInSeconds); 
             }
         }
-
-        await this.getForgeviewerStyleAndSrc();
-
+        //gets the needed code and the css to initialize the viewer
+        if(!this.pulledCode){
+            await this.getForgeviewerStyleAndSrc();
+            this.pulledCode = true;
+        }
+        //function used to initialize viewer
         Autodesk.Viewing.Initializer(options, () =>{
                 console.log("getting started");
+                //specifies extensions to load in the viewer
                 let config = {extensions: 
                     [
                     'Autodesk.ViewCubeUi',
@@ -192,18 +147,19 @@ export class Visual implements IVisual {
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
                 console.log(this.forgeviewer.start());
                 this.isolator = new Isolator(this.forgeviewer);
-                this.maxrows = 0;
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
+                //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
                 Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
             });
     }
-
+    //fetched needed js and css code for the viewer to run
     private async getForgeviewerStyleAndSrc() : Promise<void>{
         console.log("getting style");
         return new Promise<void>((resolve, reject) =>{
             let forgeViewerStyle = "https://developer.api.autodesk.com/modelderivative/v2/viewers/style.min.css" 
             let forgeViewerSrc = "https://developer.api.autodesk.com/modelderivative/v2/viewers/viewer3D.js"
+            //might be needed to run the viewer on chrome, currently doesn't work
             //let securityIssue = document.createElement('meta');
             let forgeViewerjs = document.createElement("script");
             let forgeViewercss = document.createElement("link");
@@ -216,43 +172,40 @@ export class Visual implements IVisual {
             forgeViewercss.rel = 'stylesheet'; 
             forgeViewercss.type = 'text/css';
             forgeViewerDiv.id = viewId;
+            //the code must be loaded in order for the next operations to work correctly, therefore the code is run only after the loading is finished
             forgeViewerjs.onload = () =>{
                 console.log("script loaded");
-                //let extension = ExtensionGetter.SelectDesk(Autodesk);
-                //let panelext = PanelExtension.SELECT_DESK(Autodesk);
-                //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, extension);
                 let panelext = PanelExtension();
-                //let connectext = visualConnectorExtension();
+                //registers the user defined extensions
                 Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
-                //Autodesk.Viewing.theExtensionManager.registerExtension(extensionid, connectext);
+                //appends css and the div of the viewer to target div
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
                 resolve();
             }
             //document.head.appendChild(securityIssue);
+            //appedns js to the target div
             this.target.appendChild(forgeViewerjs);
            
         }) 
     }
 
+    //function callsed when the document is loaded correctly
     private onLoadSuccess(doc :Autodesk.Viewing.Document){
         console.log("SUCCESS");
+        //loads the document on the viewer, visualising it
         this.forgeviewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry())
 
     }
-
+    //generic function used in case of error
     private onLoadFailure(errorCode){
         console.log("load error: " + errorCode);
     }
-
+    //used in case a command must be run on an extension
     private async myloadExtension(name : string, succcallback : Function){
         this.forgeviewer.loadExtension(name).then((res) => {succcallback(res)});
     } 
 
-    private async mygetExtension(){
-        this.connector_extension = await this.forgeviewer.getExtension(extensionid);
-        console.log('connector extension', this.connector_extension);
-    }
     /**
     * pass the options.categories used in the update function
     * the model objects will be isolated/colored accordingly (see class parameters)
@@ -302,6 +255,7 @@ export class Visual implements IVisual {
                 }
             }
         }*/
+        //retrieves the columns of the value to determine the color and the identifier of the color
         for(let obj of cat.categories){
             if(obj.source.displayName === this.id_column){
                 curModello = obj.values.map((e) => {return e.toString()});
@@ -312,6 +266,7 @@ export class Visual implements IVisual {
                 console.log("values found: ", curValues);
             }
         }
+        //creates data structures used by isolator
         let stru : struct[] = [];
         if(curValues != undefined){
             for(let val of curValues){
@@ -319,19 +274,24 @@ export class Visual implements IVisual {
                 stru.push(new struct([this.id_column], curcolor));
             }
         }
+        //the isolator highlights the given models (determined by the id), according to the set options
         this.isolator.searchAndIsolate(stru, curModello, this.isolate, this.zoom, this.color, this.hidden)
     }
 
+    //updates the parameters using the passed columns
     private updateParameters(cat : powerbi.DataViewCategorical){
         console.log("updating parameters");
         let RGBI : number[][] = [[], [], [], []];
         let color_reference : string[] = [];
         let value_reference : string[] = [];
         let value_color : string[] = [];
+        //updates credentials
         this.urn = cat.values[0].values[0] instanceof String || typeof cat.values[0].values[0] === 'string'  ? <string>cat.values[0].values[0] : undefined; 
         this.client_id = cat.values[1].values[0] instanceof String || typeof cat.values[1].values[0] === 'string'  ? <string>cat.values[1].values[0] : undefined;
         this.client_secret = cat.values[2].values[0] instanceof String || typeof cat.values[2].values[0] === 'string'  ? <string>cat.values[2].values[0] : undefined
+        //updates the name of the column identifying the id
         this.id_column = cat.values[4].values[0] instanceof String || typeof cat.values[4].values[0] === 'string'  ? <string>cat.values[4].values[0] : undefined
+        //column determining if the highlighted elements are hidden completely or not
         this.hidden = cat.values[5].values[0] != undefined ? cat.values[5].values[0].toString() === '1' : false;
         console.log("updated credentials")
 
@@ -345,42 +305,53 @@ export class Visual implements IVisual {
 
         for(let val of cat.categories){
             let displayName = val.source.displayName;
+            //Red column
             if(displayName === R){
                RGBI[0] = val.values.map((e) => {return Number(e.toString())});
             }
+            //green column
             if(displayName === G){
                RGBI[1] = val.values.map((e) => {return Number(e.toString())}); 
             }
+            //blue column
             if(displayName === B){
                RGBI[2] = val.values.map((e) => {return Number(e.toString())}); 
             }
+            //intensity column
             if(displayName === I){
                RGBI[3] = val.values.map((e) => {return Number(e.toString())}); 
             }
+            //color column
             if(displayName === color_ref){
                 color_reference = val.values.map((e) => {return e.toString()});
             }
+            //value column associated to the color
             if(displayName === value_ref){
                 value_reference = val.values.map((e) => {return e.toString()});
             }
+            //color associated to the value
             if(displayName === color_value){
                 value_color = val.values.map((e) => {return e.toString()});
             }
 
             
         }
+        //checking if all the columns are given
         let length = color_reference.length
         let samelength = true;
         for(let tmp of RGBI){
             samelength = length === tmp.length;
         }
         if(samelength){
+            //inserting the colors in a map
             for(let i = 0; i < length; i ++){
                 this.colorDict.set(color_reference[i], [RGBI[0][i], RGBI[1][i], RGBI[2][i], RGBI[3][i]])
             }
             console.log(this.colorDict);
         }
+        //if both the color and the value are given
         if(value_color.length === value_reference.length){
+            //inserts the associations value-color in a map
             for(let i = 0; i < value_color.length; i ++){
                 this.value_to_color.set(value_reference[i], value_color[i])
             }

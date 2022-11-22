@@ -1,6 +1,8 @@
 /**
  * extension to allow the user to enter the values
  * to select objects according to the selections on other visuals
+ * (analogue to the panel_extension) 
+ * no longer used as the configuration is performed through tables given in powerbi
  **/
 export function visualConnectorExtension(){
     class Panel extends Autodesk.Viewing.UI.DockingPanel{
@@ -194,6 +196,7 @@ export function visualConnectorExtension(){
             toolbar.addControl(this.subToolbar);
         }
         //color values with syntax: color, value;...
+        //returns the values needed to config the search
         public getData() : string[][] {
             let couples = this.str[3].split(';').filter((word) => {return word != ""});
             return [[this.str[0]], [this.str[1]], [this.str[2]], couples.length === 0 ? [''] : couples];

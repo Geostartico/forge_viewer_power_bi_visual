@@ -1,3 +1,4 @@
+//used to isolate the elements identified by the id
 export function isolateFunction(dbIds : number[], tree : any/*instance tree*/, viewer, hide : boolean){
     console.log("dbIds: ", dbIds);
     let leafIDs = getLeaves(dbIds, tree); 

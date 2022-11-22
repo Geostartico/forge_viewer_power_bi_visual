@@ -1,6 +1,6 @@
 import {struct} from './attribute_parser'
 import {isolateFunction} from './isolateFunction'
-//refactoring of the function to paint and 
+//class to isolate, color, zoom and hide elements
 export class Isolator{
     curDbids : Set<number>;
     dbidToColor : Map<number, number[][]>;
@@ -17,6 +17,7 @@ export class Isolator{
         this.viewer = aviewer;
     }
 
+    //clears all modifications
     public clear() : void{
         this.viewer.impl.visibilityManager.setNodeOff(this.viewer.model.getRootId(), false);
         this.viewer.isolate();
@@ -24,6 +25,7 @@ export class Isolator{
         this.viewer.fitToView();
     }
 
+    //elements where the avalues[i] is contained in the property fields anames.names[i].names, according to the color anames.names[i].color
     //TODO: make multithred
     public searchAndIsolate(anames : struct[], avalues : string[], isolate : boolean, zoom : boolean, paint : boolean, hide : boolean) : void{
         this.clear();
@@ -45,6 +47,9 @@ export class Isolator{
         this.viewer.search('"' + this.searchParam.vals[0] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[0].names, {searchHidden: true, includeInherited: true});
 
     }
+
+    //accidentally implemented this function misunderstanding a feature
+    //it colors based on the value of a property
     public searchAndColorByValue(field : string, keyword: string, valueField : string, valueToColor : Map<string, number[]>, clearPrev : boolean = true){
         this.curDbids = new Set<number>();
         if(clearPrev){
@@ -75,18 +80,18 @@ export class Isolator{
     } 
 
     private succcallback(dbids : number[]){
-        //insert new dbids
+        //insert new dbids and associate them with the correct color
         for(let i of  dbids){
             this.curDbids.add(i);
             if(!this.dbidToColor.has(i)){
                 this.dbidToColor.set(i, [this.searchParam.names[this.curDone].color]);
             }
             else{
+                //the same dbid could satisfy more than one condition
                 this.dbidToColor.set(i, this.dbidToColor.get(i).concat([this.searchParam.names[this.curDone].color]));
             }
         }
         this.curDone++;
-        //console.log(this.curDone);
         //it's the last iteration, isolate and paint
         if(this.curDone === this.numOfNames){
             console.log("FATTO");
@@ -99,6 +104,7 @@ export class Isolator{
             //paint
             if(this.paint){
                 this.dbidToColor.forEach((colors : number[][], num : number) => {
+                        //averages the colors that should color the object
                         let avgcolor : number [] = this.average(colors, 256);
                         let threeAvgColor = new THREE.Vector4(avgcolor[0], avgcolor[1], avgcolor[2], avgcolor[3]);
                         this.viewer.setThemingColor(num, threeAvgColor, this.viewer.model, true) 
@@ -108,6 +114,7 @@ export class Isolator{
                 this.viewer.fitToView(Array.from(this.curDbids.values()));
             }
         }
+        //not all iterations where done, calls search for the next parameter
         else{
             this.viewer.search('"' + this.searchParam.vals[this.curDone] + '"', this.succcallback.bind(this), this.errCallback, this.searchParam.names[this.curDone].names, {searchHidden: true, includeInherited: true});
         }

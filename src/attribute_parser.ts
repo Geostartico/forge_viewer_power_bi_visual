@@ -10,6 +10,8 @@ export class struct{
         this.color = nm;
     }
 }
+
+//used by the panel extension to parse the given parameters
 export function attributeParser(attributeVals : string, attributeNames : string) : {names : struct[], vals : string[]}{
     let dividedvals : string[] = parseVals(attributeVals);
     let divideNames : struct[] = parseNames(attributeNames);
