@@ -10,6 +10,7 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 import {PanelExtension} from "./panel_extension";
 import {Isolator} from "./Isolator";
 import {struct} from "./attribute_parser";
+import {selectionManagerExtension} from './Selection_manager_extension'
 //import {visualConnectorExtension} from './VisualConnector_extension';
 let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
@@ -26,6 +27,9 @@ let value_column = "value";
 export class Visual implements IVisual {
     private target: HTMLElement;
     private pbioptions: VisualConstructorOptions;
+    private selectionMan : powerbi.extensibility.ISelectionManager;
+    private host : powerbi.extensibility.visual.IVisualHost;
+    private selection_extension;
     private forgeviewer : Autodesk.Viewing.GuiViewer3D;
     private client_id : string | undefined;
     private client_secret : string | undefined;
@@ -53,6 +57,8 @@ export class Visual implements IVisual {
         this.target = options.element;
         this.target.innerText = htmlText;
         console.log(this.target); 
+        this.selectionMan = options.host.createSelectionManager();
+        this.host = options.host;
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
     }
     //method used to authenticate from syncronous functions
@@ -81,6 +87,9 @@ export class Visual implements IVisual {
 
     //called by power BI when something is changed in the report
     public update(options: VisualUpdateOptions) {
+        if(!this.selection_extension){
+            this.myGetExtension();
+        }
         //where the tables given by the user are passed
         let cat = options.dataViews[0].categorical;
         console.log(cat);
@@ -88,6 +97,11 @@ export class Visual implements IVisual {
         let curcred : string[] = [this.client_id, this.client_secret, this.urn];
         //changing parameters
         this.updateParameters(cat);
+        if(this.selection_extension){
+            this.selection_extension.setPropertyName(this.id_column);
+            this.selection_extension.setSelectionHost(this.host);
+            this.selection_extension.setSelectionManager(this.selectionMan);
+        }
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
         //at some point the credentials where set
         if(this.client_id != undefined && this.client_secret != undefined && this.urn != undefined){
@@ -141,7 +155,8 @@ export class Visual implements IVisual {
                 let config = {extensions: 
                     [
                     'Autodesk.ViewCubeUi',
-                    'panel_extension'
+                    'panel_extension',
+                    'selection_manager_extension'
                     ]
                 };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
@@ -178,6 +193,7 @@ export class Visual implements IVisual {
                 let panelext = PanelExtension();
                 //registers the user defined extensions
                 Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
+                Autodesk.Viewing.theExtensionManager.registerExtension('selection_manager_extension', selectionManagerExtension())
                 //appends css and the div of the viewer to target div
                 this.target.appendChild(forgeViewercss);
                 this.target.appendChild(forgeViewerDiv);
@@ -258,6 +274,7 @@ export class Visual implements IVisual {
         //retrieves the columns of the value to determine the color and the identifier of the color
         for(let obj of cat.categories){
             if(obj.source.displayName === this.id_column){
+                this.selection_extension.setSelectables(obj);
                 curModello = obj.values.map((e) => {return e.toString()});
                 console.log("ids found: ", curModello);
             }
@@ -357,6 +374,10 @@ export class Visual implements IVisual {
             }
             console.log(this.value_to_color);
         }
+    }
+
+    private async myGetExtension(){
+        this.forgeviewer.getExtension('selection_manager_extension', ((ext) => {this.selection_extension = ext}));
     }
 
 }

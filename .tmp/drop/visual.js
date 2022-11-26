@@ -153,6 +153,90 @@ class Isolator {
 
 /***/ }),
 
+/***/ 8:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "x": () => (/* binding */ selectionManagerExtension)
+/* harmony export */ });
+/* harmony import */ var async_mutex__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(643);
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+
+function selectionManagerExtension() {
+    class ext extends Autodesk.Viewing.Extension {
+        constructor(viewer, options) {
+            super(viewer, options);
+            this.idToSelector = new Map();
+        }
+        load() {
+            this.viewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, (this.selectionCallback).bind(this));
+            console.log('selectionManagerExtension loaded');
+            return true;
+        }
+        setSelectionHost(host) {
+            this.host = host;
+        }
+        setSelectionManager(selMan) {
+            this.selectionManager = selMan;
+        }
+        setSelectables(cat) {
+            if (!this.host) {
+                return;
+            }
+            for (let i = 0; i < cat.values.length; i++) {
+                this.idToSelector.set(cat.values[i].toString(), this.host.createSelectionIdBuilder().withCategory(cat, i).createSelectionId());
+            }
+        }
+        setPropertyName(name) {
+            if (name) {
+                this.propertyName = name;
+            }
+        }
+        selectionCallback(event) {
+            return __awaiter(this, void 0, void 0, function* () {
+                console.log("Selection on the viewer was made");
+                let dbIds = event.dbIdArray;
+                let toSelect = [];
+                let sem;
+                if (this.host && this.selectionManager) {
+                    sem = new async_mutex__WEBPACK_IMPORTED_MODULE_0__/* .Semaphore */ .L3(dbIds.length);
+                    for (let dbid of dbIds) {
+                        yield sem.acquire();
+                        yield this.viewer.getProperties(dbid, ((pr) => {
+                            console.log("gettingProperties");
+                            for (let prop of pr.properties) {
+                                if (prop.displayName === this.propertyName) {
+                                    console.log("property found");
+                                    if (this.idToSelector.has(prop.displayValue.toString())) {
+                                        toSelect.push(this.idToSelector.get(prop.displayValue.toString()));
+                                    }
+                                }
+                            }
+                            sem.release();
+                        }).bind(this));
+                    }
+                }
+                yield sem.acquire();
+                console.log(toSelect);
+                this.selectionManager.clear();
+                this.selectionManager.select(toSelect, true);
+            });
+        }
+    }
+    return ext;
+}
+
+
+/***/ }),
+
 /***/ 323:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -435,7 +519,8 @@ function PanelExtension() {
 /* harmony export */ });
 /* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(931);
 /* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(438);
-/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(323);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(323);
+/* harmony import */ var _Selection_manager_extension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(8);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -448,6 +533,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 };
 
 //import {ExtensionGetter} from "./ExtensionGetter";
+
 
 
 
@@ -483,6 +569,8 @@ class Visual {
         this.target = options.element;
         this.target.innerText = htmlText;
         console.log(this.target);
+        this.selectionMan = options.host.createSelectionManager();
+        this.host = options.host;
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
     }
     //method used to authenticate from syncronous functions
@@ -509,6 +597,9 @@ class Visual {
     }
     //called by power BI when something is changed in the report
     update(options) {
+        if (!this.selection_extension) {
+            this.myGetExtension();
+        }
         //where the tables given by the user are passed
         let cat = options.dataViews[0].categorical;
         console.log(cat);
@@ -516,6 +607,11 @@ class Visual {
         let curcred = [this.client_id, this.client_secret, this.urn];
         //changing parameters
         this.updateParameters(cat);
+        if (this.selection_extension) {
+            this.selection_extension.setPropertyName(this.id_column);
+            this.selection_extension.setSelectionHost(this.host);
+            this.selection_extension.setSelectionManager(this.selectionMan);
+        }
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
         //at some point the credentials where set
         if (this.client_id != undefined && this.client_secret != undefined && this.urn != undefined) {
@@ -568,7 +664,8 @@ class Visual {
                 //specifies extensions to load in the viewer
                 let config = { extensions: [
                         'Autodesk.ViewCubeUi',
-                        'panel_extension'
+                        'panel_extension',
+                        'selection_manager_extension'
                     ]
                 };
                 this.forgeviewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById(viewerDiv), config);
@@ -606,6 +703,7 @@ class Visual {
                     let panelext = (0,_panel_extension__WEBPACK_IMPORTED_MODULE_0__/* .PanelExtension */ .b)();
                     //registers the user defined extensions
                     Autodesk.Viewing.theExtensionManager.registerExtension("panel_extension", panelext);
+                    Autodesk.Viewing.theExtensionManager.registerExtension('selection_manager_extension', (0,_Selection_manager_extension__WEBPACK_IMPORTED_MODULE_2__/* .selectionManagerExtension */ .x)());
                     //appends css and the div of the viewer to target div
                     this.target.appendChild(forgeViewercss);
                     this.target.appendChild(forgeViewerDiv);
@@ -686,6 +784,7 @@ class Visual {
             //retrieves the columns of the value to determine the color and the identifier of the color
             for (let obj of cat.categories) {
                 if (obj.source.displayName === this.id_column) {
+                    this.selection_extension.setSelectables(obj);
                     curModello = obj.values.map((e) => { return e.toString(); });
                     console.log("ids found: ", curModello);
                 }
@@ -699,7 +798,7 @@ class Visual {
             if (curValues != undefined) {
                 for (let val of curValues) {
                     let curcolor = this.value_to_color.has(val) ? this.colorDict.get(this.value_to_color.get(val)) : [0, 0, 0, 0];
-                    stru.push(new _attribute_parser__WEBPACK_IMPORTED_MODULE_2__/* .struct */ .n([this.id_column], curcolor));
+                    stru.push(new _attribute_parser__WEBPACK_IMPORTED_MODULE_3__/* .struct */ .n([this.id_column], curcolor));
                 }
             }
             //the isolator highlights the given models (determined by the id), according to the set options
@@ -782,6 +881,11 @@ class Visual {
             console.log(this.value_to_color);
         }
     }
+    myGetExtension() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.forgeviewer.getExtension('selection_manager_extension', ((ext) => { this.selection_extension = ext; }));
+        });
+    }
 }
 
 
@@ -798,9 +902,10 @@ module.exports = Function('return this')();
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "L3": () => (/* binding */ Semaphore),
 /* harmony export */   "WU": () => (/* binding */ Mutex)
 /* harmony export */ });
-/* unused harmony exports E_ALREADY_LOCKED, E_CANCELED, E_TIMEOUT, Semaphore, tryAcquire, withTimeout */
+/* unused harmony exports E_ALREADY_LOCKED, E_CANCELED, E_TIMEOUT, tryAcquire, withTimeout */
 const E_TIMEOUT = new Error('timeout while waiting for mutex to become available');
 const E_ALREADY_LOCKED = new Error('mutex already locked');
 const E_CANCELED = new Error('request for lock canceled');

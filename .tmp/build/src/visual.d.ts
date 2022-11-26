@@ -6,6 +6,9 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 export declare class Visual implements IVisual {
     private target;
     private pbioptions;
+    private selectionMan;
+    private host;
+    private selection_extension;
     private forgeviewer;
     private client_id;
     private client_secret;
@@ -34,4 +37,5 @@ export declare class Visual implements IVisual {
     * **/
     private isolateBySelection;
     private updateParameters;
+    private myGetExtension;
 }
