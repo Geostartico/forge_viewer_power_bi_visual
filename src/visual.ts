@@ -1,4 +1,4 @@
-"use strict";
+"use strict"
 
 import powerbi from "powerbi-visuals-api";
 import "./../style/visual.less";
@@ -30,6 +30,7 @@ export class Visual implements IVisual {
     private selectionMan : powerbi.extensibility.ISelectionManager;
     private host : powerbi.extensibility.visual.IVisualHost;
     private selection_extension;
+    private suppress_render_cycle : boolean
     private forgeviewer : Autodesk.Viewing.GuiViewer3D;
     private client_id : string | undefined;
     private client_secret : string | undefined;
@@ -100,6 +101,7 @@ export class Visual implements IVisual {
         if(this.selection_extension){
             this.selection_extension.setPropertyName(this.id_column);
             this.selection_extension.setSelectionHost(this.host);
+            this.selection_extension.setOnNonVoidSelectionCallback((() => {this.suppress_render_cycle = true}).bind(this));
             this.selection_extension.setSelectionManager(this.selectionMan);
         }
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
@@ -108,31 +110,37 @@ export class Visual implements IVisual {
             //the forge viewer was invalidated(wrong credentials) or it was never initialized
             if(this.forgeviewer === undefined){
                 //when the authentication is finished the viewer is initialized
-                let cl = () => {this.initializeViewer(viewId)}; 
+                let cl = () => {this.initializeViewer(viewId, cat)}; 
                 this.syncauth(cl);
             }
             else{
                 console.info("updating");
                 //coloring based on the selection
-                this.isolateBySelection(cat);
+                console.log(this.suppress_render_cycle);
+                if(!this.suppress_render_cycle){
+                    this.isolateBySelection(cat);
+                }
+                else{
+                    this.suppress_render_cycle = false
+                }
                 //credentials changed
                 if(this.client_id != curcred[0] || this.client_secret != curcred[1]){
                    console.info("changing account");
                    this.syncauth(() => {
                        this.forgeviewer.finish();
                        this.forgeviewer = undefined;
-                       this.initializeViewer(viewId);
+                       this.initializeViewer(viewId, cat);
                    });
                }
                //model changed
                else if(this.urn != curcred[2]){
-                   Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure)
+                   Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {await this.onLoadSuccess; this.isolateBySelection(cat)}).bind(this), this.onLoadFailure)
                }
             }
         }
     }
 
-    public async initializeViewer(viewerDiv : string) : Promise<void>{
+    public async initializeViewer(viewerDiv : string, cat : powerbi.DataViewCategorical) : Promise<void>{
         let aT = this.accessToken;
         //options for the viewer initialization
         let options = {
@@ -165,7 +173,7 @@ export class Visual implements IVisual {
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
-                Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
+                Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {await this.onLoadSuccess(doc); this.isolateBySelection(cat)}).bind(this), this.onLoadFailure);
             });
     }
     //fetched needed js and css code for the viewer to run
@@ -207,11 +215,10 @@ export class Visual implements IVisual {
     }
 
     //function callsed when the document is loaded correctly
-    private onLoadSuccess(doc :Autodesk.Viewing.Document){
+    private async onLoadSuccess(doc :Autodesk.Viewing.Document){
         console.log("SUCCESS");
         //loads the document on the viewer, visualising it
-        this.forgeviewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry())
-
+        await this.forgeviewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry())
     }
     //generic function used in case of error
     private onLoadFailure(errorCode){
@@ -228,6 +235,7 @@ export class Visual implements IVisual {
     * **/
     private async isolateBySelection(cat : powerbi.DataViewCategorical){
         //colora di default, in caso aggiungeremo funzione per resettare
+        console.log("PCOnsanjsbnfdsofib");
         let curModello : string[];
         let curValues : string[];
         /*if(!this.connector_extension){
@@ -274,7 +282,9 @@ export class Visual implements IVisual {
         //retrieves the columns of the value to determine the color and the identifier of the color
         for(let obj of cat.categories){
             if(obj.source.displayName === this.id_column){
-                this.selection_extension.setSelectables(obj);
+                if(this.selection_extension){
+                    this.selection_extension.setSelectables(obj);
+                }
                 curModello = obj.values.map((e) => {return e.toString()});
                 console.log("ids found: ", curModello);
             }
@@ -377,7 +387,9 @@ export class Visual implements IVisual {
     }
 
     private async myGetExtension(){
-        this.forgeviewer.getExtension('selection_manager_extension', ((ext) => {this.selection_extension = ext}));
+        if(this.forgeviewer){
+            this.forgeviewer.getExtension('selection_manager_extension', ((ext) => {this.selection_extension = ext}));
+        }
     }
 
 }

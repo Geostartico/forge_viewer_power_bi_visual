@@ -3,13 +3,13 @@ var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG;
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 438:
+/***/ 24:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "B": () => (/* binding */ Isolator)
 /* harmony export */ });
-/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(303);
+/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(668);
 /* harmony import */ var async_mutex__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(643);
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -153,7 +153,7 @@ class Isolator {
 
 /***/ }),
 
-/***/ 8:
+/***/ 391:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -200,10 +200,17 @@ function selectionManagerExtension() {
                 this.propertyName = name;
             }
         }
+        setOnNonVoidSelectionCallback(fn) {
+            this.onClickCallBack = fn;
+        }
         selectionCallback(event) {
             return __awaiter(this, void 0, void 0, function* () {
                 console.log("Selection on the viewer was made");
                 let dbIds = event.dbIdArray;
+                if (dbIds.length === 0) {
+                    this.selectionManager.clear();
+                    return;
+                }
                 let toSelect = [];
                 let sem;
                 if (this.host && this.selectionManager) {
@@ -224,8 +231,13 @@ function selectionManagerExtension() {
                         }).bind(this));
                     }
                 }
-                yield sem.acquire();
+                if (sem) {
+                    yield sem.acquire(dbIds.length);
+                }
                 console.log(toSelect);
+                if (this.onClickCallBack) {
+                    this.onClickCallBack();
+                }
                 this.selectionManager.clear();
                 this.selectionManager.select(toSelect, true);
             });
@@ -237,7 +249,7 @@ function selectionManagerExtension() {
 
 /***/ }),
 
-/***/ 323:
+/***/ 51:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -317,7 +329,7 @@ function parseColor(str) {
 
 /***/ }),
 
-/***/ 303:
+/***/ 668:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -355,14 +367,14 @@ function getLeaves(dbIds, tree) {
 
 /***/ }),
 
-/***/ 931:
+/***/ 776:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "b": () => (/* binding */ PanelExtension)
 /* harmony export */ });
-/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(323);
-/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(438);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(51);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(24);
 
 
 /**
@@ -511,16 +523,16 @@ function PanelExtension() {
 
 /***/ }),
 
-/***/ 85:
+/***/ 699:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "u": () => (/* binding */ Visual)
 /* harmony export */ });
-/* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(931);
-/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(438);
-/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(323);
-/* harmony import */ var _Selection_manager_extension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(8);
+/* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(776);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(24);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(51);
+/* harmony import */ var _Selection_manager_extension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(391);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -610,6 +622,7 @@ class Visual {
         if (this.selection_extension) {
             this.selection_extension.setPropertyName(this.id_column);
             this.selection_extension.setSelectionHost(this.host);
+            this.selection_extension.setOnNonVoidSelectionCallback((() => { this.suppress_render_cycle = true; }).bind(this));
             this.selection_extension.setSelectionManager(this.selectionMan);
         }
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
@@ -618,30 +631,36 @@ class Visual {
             //the forge viewer was invalidated(wrong credentials) or it was never initialized
             if (this.forgeviewer === undefined) {
                 //when the authentication is finished the viewer is initialized
-                let cl = () => { this.initializeViewer(viewId); };
+                let cl = () => { this.initializeViewer(viewId, cat); };
                 this.syncauth(cl);
             }
             else {
                 console.info("updating");
                 //coloring based on the selection
-                this.isolateBySelection(cat);
+                console.log(this.suppress_render_cycle);
+                if (!this.suppress_render_cycle) {
+                    this.isolateBySelection(cat);
+                }
+                else {
+                    this.suppress_render_cycle = false;
+                }
                 //credentials changed
                 if (this.client_id != curcred[0] || this.client_secret != curcred[1]) {
                     console.info("changing account");
                     this.syncauth(() => {
                         this.forgeviewer.finish();
                         this.forgeviewer = undefined;
-                        this.initializeViewer(viewId);
+                        this.initializeViewer(viewId, cat);
                     });
                 }
                 //model changed
                 else if (this.urn != curcred[2]) {
-                    Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
+                    Autodesk.Viewing.Document.load('urn:' + this.urn, ((doc) => __awaiter(this, void 0, void 0, function* () { yield this.onLoadSuccess; this.isolateBySelection(cat); })).bind(this), this.onLoadFailure);
                 }
             }
         }
     }
-    initializeViewer(viewerDiv) {
+    initializeViewer(viewerDiv, cat) {
         return __awaiter(this, void 0, void 0, function* () {
             let aT = this.accessToken;
             //options for the viewer initialization
@@ -674,7 +693,7 @@ class Visual {
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
-                Autodesk.Viewing.Document.load('urn:' + this.urn, this.onLoadSuccess, this.onLoadFailure);
+                Autodesk.Viewing.Document.load('urn:' + this.urn, ((doc) => __awaiter(this, void 0, void 0, function* () { yield this.onLoadSuccess(doc); this.isolateBySelection(cat); })).bind(this), this.onLoadFailure);
             });
         });
     }
@@ -717,9 +736,11 @@ class Visual {
     }
     //function callsed when the document is loaded correctly
     onLoadSuccess(doc) {
-        console.log("SUCCESS");
-        //loads the document on the viewer, visualising it
-        this.forgeviewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
+        return __awaiter(this, void 0, void 0, function* () {
+            console.log("SUCCESS");
+            //loads the document on the viewer, visualising it
+            yield this.forgeviewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
+        });
     }
     //generic function used in case of error
     onLoadFailure(errorCode) {
@@ -738,6 +759,7 @@ class Visual {
     isolateBySelection(cat) {
         return __awaiter(this, void 0, void 0, function* () {
             //colora di default, in caso aggiungeremo funzione per resettare
+            console.log("PCOnsanjsbnfdsofib");
             let curModello;
             let curValues;
             /*if(!this.connector_extension){
@@ -784,7 +806,9 @@ class Visual {
             //retrieves the columns of the value to determine the color and the identifier of the color
             for (let obj of cat.categories) {
                 if (obj.source.displayName === this.id_column) {
-                    this.selection_extension.setSelectables(obj);
+                    if (this.selection_extension) {
+                        this.selection_extension.setSelectables(obj);
+                    }
                     curModello = obj.values.map((e) => { return e.toString(); });
                     console.log("ids found: ", curModello);
                 }
@@ -883,7 +907,9 @@ class Visual {
     }
     myGetExtension() {
         return __awaiter(this, void 0, void 0, function* () {
-            this.forgeviewer.getExtension('selection_manager_extension', ((ext) => { this.selection_extension = ext; }));
+            if (this.forgeviewer) {
+                this.forgeviewer.getExtension('selection_manager_extension', ((ext) => { this.selection_extension = ext; }));
+            }
         });
     }
 }
@@ -1201,7 +1227,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var _src_visual__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(85);
+/* harmony import */ var _src_visual__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(699);
 /* provided dependency */ var window = __webpack_require__(738);
 
 var powerbiKey = "powerbi";

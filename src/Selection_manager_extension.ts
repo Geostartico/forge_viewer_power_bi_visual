@@ -3,6 +3,7 @@ import { Semaphore } from "async-mutex";
 
 export function selectionManagerExtension(){
     class ext extends Autodesk.Viewing.Extension{
+        onClickCallBack : Function;
         selectionManager : powerbi.extensibility.ISelectionManager;
         host : powerbi.extensibility.visual.IVisualHost;
         idToSelector : Map<string, powerbi.extensibility.ISelectionId> = new Map<string, powerbi.extensibility.ISelectionId>();
@@ -38,10 +39,18 @@ export function selectionManagerExtension(){
                 this.propertyName = name;
             }
         }
+        public setOnNonVoidSelectionCallback(fn : Function){
+            this.onClickCallBack = fn;
+        }
 
         private async selectionCallback(event){
             console.log("Selection on the viewer was made");
+            
             let dbIds : number[]= event.dbIdArray;
+            if(dbIds.length === 0){
+                this.selectionManager.clear();
+                return;
+            }
             let toSelect : powerbi.extensibility.ISelectionId[] = [];
             let sem : Semaphore;
             if(this.host && this.selectionManager){
@@ -62,8 +71,13 @@ export function selectionManagerExtension(){
                     }).bind(this))
                 }
             }
-            await sem.acquire();
+            if(sem){
+                await sem.acquire(dbIds.length);
+            }
             console.log(toSelect);
+            if(this.onClickCallBack){
+                this.onClickCallBack()
+            }
             this.selectionManager.clear();
             this.selectionManager.select(toSelect, true);
         }

@@ -9,6 +9,7 @@ export declare class Visual implements IVisual {
     private selectionMan;
     private host;
     private selection_extension;
+    private suppress_render_cycle;
     private forgeviewer;
     private client_id;
     private client_secret;
@@ -26,7 +27,7 @@ export declare class Visual implements IVisual {
     constructor(options: VisualConstructorOptions);
     private syncauth;
     update(options: VisualUpdateOptions): void;
-    initializeViewer(viewerDiv: string): Promise<void>;
+    initializeViewer(viewerDiv: string, cat: powerbi.DataViewCategorical): Promise<void>;
     private getForgeviewerStyleAndSrc;
     private onLoadSuccess;
     private onLoadFailure;
