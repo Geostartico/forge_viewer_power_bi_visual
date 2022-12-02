@@ -27,7 +27,6 @@ let value_column = "value";
 export class Visual implements IVisual {
     private target: HTMLElement;
     private pbioptions: VisualConstructorOptions;
-    private selectionMan : powerbi.extensibility.ISelectionManager;
     private host : powerbi.extensibility.visual.IVisualHost;
     private selection_extension;
     private suppress_render_cycle : boolean
@@ -50,6 +49,7 @@ export class Visual implements IVisual {
     private colorDict : Map<string, number[]> = new Map<string, number[]>();
     //value of the column to the name of the color
     private value_to_color : Map<string, string> = new Map<string, string>();
+    //if the code was inserted into the dom
     private pulledCode = false;
 
     constructor(options: VisualConstructorOptions) {
@@ -58,7 +58,6 @@ export class Visual implements IVisual {
         this.target = options.element;
         this.target.innerText = htmlText;
         console.log(this.target); 
-        this.selectionMan = options.host.createSelectionManager();
         this.host = options.host;
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
     }
@@ -88,21 +87,27 @@ export class Visual implements IVisual {
 
     //called by power BI when something is changed in the report
     public update(options: VisualUpdateOptions) {
-        if(!this.selection_extension){
-            this.myGetExtension();
-        }
         //where the tables given by the user are passed
         let cat = options.dataViews[0].categorical;
         console.log(cat);
+        //load the extension if it was not loaded yet
+        if(!this.selection_extension){
+            this.myGetExtension(cat);
+        }
         //saves the credentials before they are updated
         let curcred : string[] = [this.client_id, this.client_secret, this.urn];
         //changing parameters
         this.updateParameters(cat);
+        //updating selection extension parameters
         if(this.selection_extension){
             this.selection_extension.setPropertyName(this.id_column);
             this.selection_extension.setSelectionHost(this.host);
+            console.log("host: ",this.host);
+            if(!this.host){
+                this.update(options);
+            }
             this.selection_extension.setOnNonVoidSelectionCallback((() => {this.suppress_render_cycle = true}).bind(this));
-            this.selection_extension.setSelectionManager(this.selectionMan);
+            this.selection_extension.setOnVoidSelectionCallback((() => {this.isolateBySelection(cat)}).bind(this));
         }
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
         //at some point the credentials where set
@@ -117,6 +122,7 @@ export class Visual implements IVisual {
                 console.info("updating");
                 //coloring based on the selection
                 console.log(this.suppress_render_cycle);
+                //the cycle was suppressed by a selection
                 if(!this.suppress_render_cycle){
                     this.isolateBySelection(cat);
                 }
@@ -173,7 +179,12 @@ export class Visual implements IVisual {
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
-                Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {await this.onLoadSuccess(doc); this.isolateBySelection(cat)}).bind(this), this.onLoadFailure);
+                //after loading the elements must be isolated and the selection extension must be retrieved
+                Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {
+                    await this.onLoadSuccess(doc);
+                    this.isolateBySelection(cat);
+                    this.myGetExtension(cat)
+                }).bind(this), this.onLoadFailure);
             });
     }
     //fetched needed js and css code for the viewer to run
@@ -386,9 +397,25 @@ export class Visual implements IVisual {
         }
     }
 
-    private async myGetExtension(){
+    private async myGetExtension(cat: powerbi.DataViewCategorical){
+        console.info("loading extension");
         if(this.forgeviewer){
-            this.forgeviewer.getExtension('selection_manager_extension', ((ext) => {this.selection_extension = ext}));
+            console.info('LOADING')
+            this.forgeviewer.getExtension('selection_manager_extension', ((ext) => {
+                //initialize the parameters of the extension
+                this.selection_extension = ext
+                this.selection_extension.setPropertyName(this.id_column);
+                this.selection_extension.setSelectionHost(this.host);
+                this.selection_extension.setOnNonVoidSelectionCallback((() => {this.suppress_render_cycle = true}).bind(this));
+                this.selection_extension.setOnVoidSelectionCallback((() => {this.isolateBySelection(cat)}).bind(this));
+            for(let obj of cat.categories){
+                if(obj.source.displayName === this.id_column){
+                    if(this.selection_extension){
+                        this.selection_extension.setSelectables(obj);
+                    }
+                }
+            }
+            }));
         }
     }
 

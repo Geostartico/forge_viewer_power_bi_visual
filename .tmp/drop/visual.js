@@ -3,13 +3,13 @@ var pbiviewertestB15982BC11F74E40B7A6B4503F50947D_DEBUG;
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 24:
+/***/ 438:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "B": () => (/* binding */ Isolator)
 /* harmony export */ });
-/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(668);
+/* harmony import */ var _isolateFunction__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(303);
 /* harmony import */ var async_mutex__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(643);
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -153,7 +153,7 @@ class Isolator {
 
 /***/ }),
 
-/***/ 391:
+/***/ 8:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -170,13 +170,16 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
     });
 };
 
+//extension manages selection on other powerbi tables
 function selectionManagerExtension() {
     class ext extends Autodesk.Viewing.Extension {
         constructor(viewer, options) {
             super(viewer, options);
+            //map that associates the value of propertyName for a object to the selectionID
             this.idToSelector = new Map();
         }
         load() {
+            //adds listener to viewer event
             this.viewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, (this.selectionCallback).bind(this));
             console.log('selectionManagerExtension loaded');
             return true;
@@ -184,14 +187,13 @@ function selectionManagerExtension() {
         setSelectionHost(host) {
             this.host = host;
         }
-        setSelectionManager(selMan) {
-            this.selectionManager = selMan;
-        }
+        //updates selectable objects
         setSelectables(cat) {
             if (!this.host) {
                 return;
             }
             for (let i = 0; i < cat.values.length; i++) {
+                //generates selectionIds and puts them into the map
                 this.idToSelector.set(cat.values[i].toString(), this.host.createSelectionIdBuilder().withCategory(cat, i).createSelectionId());
             }
         }
@@ -203,16 +205,27 @@ function selectionManagerExtension() {
         setOnNonVoidSelectionCallback(fn) {
             this.onClickCallBack = fn;
         }
+        setOnVoidSelectionCallback(fn) {
+            this.onVoidClickCallBack = fn;
+        }
+        //function called when a selection is made
         selectionCallback(event) {
             return __awaiter(this, void 0, void 0, function* () {
                 console.log("Selection on the viewer was made");
+                if (!this.selectionManager && this.host) {
+                    this.selectionManager = this.host.createSelectionManager();
+                }
+                console.log("selectables", this.idToSelector);
                 let dbIds = event.dbIdArray;
-                if (dbIds.length === 0) {
+                //no elements were selected
+                if (dbIds.length === 0 && this.onVoidClickCallBack) {
+                    this.onVoidClickCallBack();
                     this.selectionManager.clear();
                     return;
                 }
                 let toSelect = [];
                 let sem;
+                //for each dbId i verify its propertyName value and determine its SelectionID
                 if (this.host && this.selectionManager) {
                     sem = new async_mutex__WEBPACK_IMPORTED_MODULE_0__/* .Semaphore */ .L3(dbIds.length);
                     for (let dbid of dbIds) {
@@ -232,12 +245,17 @@ function selectionManagerExtension() {
                     }
                 }
                 if (sem) {
+                    //await for all the callbacks to finish
                     yield sem.acquire(dbIds.length);
                 }
                 console.log(toSelect);
+                if (toSelect.length === 0) {
+                    return;
+                }
                 if (this.onClickCallBack) {
                     this.onClickCallBack();
                 }
+                //if the selections are not clear beforehand they are gonna be stacked
                 this.selectionManager.clear();
                 this.selectionManager.select(toSelect, true);
             });
@@ -249,7 +267,7 @@ function selectionManagerExtension() {
 
 /***/ }),
 
-/***/ 51:
+/***/ 323:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -329,7 +347,7 @@ function parseColor(str) {
 
 /***/ }),
 
-/***/ 668:
+/***/ 303:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -367,14 +385,14 @@ function getLeaves(dbIds, tree) {
 
 /***/ }),
 
-/***/ 776:
+/***/ 931:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "b": () => (/* binding */ PanelExtension)
 /* harmony export */ });
-/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(51);
-/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(24);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(323);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(438);
 
 
 /**
@@ -523,16 +541,16 @@ function PanelExtension() {
 
 /***/ }),
 
-/***/ 699:
+/***/ 85:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "u": () => (/* binding */ Visual)
 /* harmony export */ });
-/* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(776);
-/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(24);
-/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(51);
-/* harmony import */ var _Selection_manager_extension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(391);
+/* harmony import */ var _panel_extension__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(931);
+/* harmony import */ var _Isolator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(438);
+/* harmony import */ var _attribute_parser__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(323);
+/* harmony import */ var _Selection_manager_extension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(8);
 
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -575,13 +593,13 @@ class Visual {
         this.colorDict = new Map();
         //value of the column to the name of the color
         this.value_to_color = new Map();
+        //if the code was inserted into the dom
         this.pulledCode = false;
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
         this.target.innerText = htmlText;
         console.log(this.target);
-        this.selectionMan = options.host.createSelectionManager();
         this.host = options.host;
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
     }
@@ -609,21 +627,27 @@ class Visual {
     }
     //called by power BI when something is changed in the report
     update(options) {
-        if (!this.selection_extension) {
-            this.myGetExtension();
-        }
         //where the tables given by the user are passed
         let cat = options.dataViews[0].categorical;
         console.log(cat);
+        //load the extension if it was not loaded yet
+        if (!this.selection_extension) {
+            this.myGetExtension(cat);
+        }
         //saves the credentials before they are updated
         let curcred = [this.client_id, this.client_secret, this.urn];
         //changing parameters
         this.updateParameters(cat);
+        //updating selection extension parameters
         if (this.selection_extension) {
             this.selection_extension.setPropertyName(this.id_column);
             this.selection_extension.setSelectionHost(this.host);
+            console.log("host: ", this.host);
+            if (!this.host) {
+                this.update(options);
+            }
             this.selection_extension.setOnNonVoidSelectionCallback((() => { this.suppress_render_cycle = true; }).bind(this));
-            this.selection_extension.setSelectionManager(this.selectionMan);
+            this.selection_extension.setOnVoidSelectionCallback((() => { this.isolateBySelection(cat); }).bind(this));
         }
         console.log("credentials", [this.urn, this.client_id, this.client_secret]);
         //at some point the credentials where set
@@ -638,6 +662,7 @@ class Visual {
                 console.info("updating");
                 //coloring based on the selection
                 console.log(this.suppress_render_cycle);
+                //the cycle was suppressed by a selection
                 if (!this.suppress_render_cycle) {
                     this.isolateBySelection(cat);
                 }
@@ -693,7 +718,12 @@ class Visual {
                 //this.forgeviewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, ((e) => {this.forgeviewer.getProperties(e.dbIdArray[0], (k) => {console.log(k);})}).bind(this));
                 //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
-                Autodesk.Viewing.Document.load('urn:' + this.urn, ((doc) => __awaiter(this, void 0, void 0, function* () { yield this.onLoadSuccess(doc); this.isolateBySelection(cat); })).bind(this), this.onLoadFailure);
+                //after loading the elements must be isolated and the selection extension must be retrieved
+                Autodesk.Viewing.Document.load('urn:' + this.urn, ((doc) => __awaiter(this, void 0, void 0, function* () {
+                    yield this.onLoadSuccess(doc);
+                    this.isolateBySelection(cat);
+                    this.myGetExtension(cat);
+                })).bind(this), this.onLoadFailure);
             });
         });
     }
@@ -905,10 +935,26 @@ class Visual {
             console.log(this.value_to_color);
         }
     }
-    myGetExtension() {
+    myGetExtension(cat) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.info("loading extension");
             if (this.forgeviewer) {
-                this.forgeviewer.getExtension('selection_manager_extension', ((ext) => { this.selection_extension = ext; }));
+                console.info('LOADING');
+                this.forgeviewer.getExtension('selection_manager_extension', ((ext) => {
+                    //initialize the parameters of the extension
+                    this.selection_extension = ext;
+                    this.selection_extension.setPropertyName(this.id_column);
+                    this.selection_extension.setSelectionHost(this.host);
+                    this.selection_extension.setOnNonVoidSelectionCallback((() => { this.suppress_render_cycle = true; }).bind(this));
+                    this.selection_extension.setOnVoidSelectionCallback((() => { this.isolateBySelection(cat); }).bind(this));
+                    for (let obj of cat.categories) {
+                        if (obj.source.displayName === this.id_column) {
+                            if (this.selection_extension) {
+                                this.selection_extension.setSelectables(obj);
+                            }
+                        }
+                    }
+                }));
             }
         });
     }
@@ -1227,7 +1273,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var _src_visual__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(699);
+/* harmony import */ var _src_visual__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(85);
 /* provided dependency */ var window = __webpack_require__(738);
 
 var powerbiKey = "powerbi";

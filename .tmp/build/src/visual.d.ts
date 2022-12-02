@@ -6,7 +6,6 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 export declare class Visual implements IVisual {
     private target;
     private pbioptions;
-    private selectionMan;
     private host;
     private selection_extension;
     private suppress_render_cycle;
