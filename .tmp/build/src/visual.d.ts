@@ -5,6 +5,7 @@ import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 export declare class Visual implements IVisual {
     private target;
+    private app;
     private pbioptions;
     private host;
     private selection_extension;
@@ -24,6 +25,7 @@ export declare class Visual implements IVisual {
     private value_to_color;
     private pulledCode;
     constructor(options: VisualConstructorOptions);
+    private delay;
     private syncauth;
     update(options: VisualUpdateOptions): void;
     initializeViewer(viewerDiv: string, cat: powerbi.DataViewCategorical): Promise<void>;

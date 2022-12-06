@@ -580,6 +580,12 @@ let G = "G";
 let B = "B";
 let I = "I";
 let value_column = "value";
+const first_part_link = "https://developer.api.autodesk.com/authentication/v1/authorize?response_type=code&client_id=";
+const second_part_link = "&redirect_uri=https%3A%2F%2Flocalhost:4222/callback&scope=data:read";
+const anchor_link_id = "authentication_anchor";
+const link_base = 'https://localhost:4222';
+const tokenPath = '/getToken';
+const postCredentialsPath = '/sendCredentials';
 class Visual {
     constructor(options) {
         //options of the selection
@@ -598,28 +604,63 @@ class Visual {
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
-        this.target.innerText = htmlText;
         console.log(this.target);
         this.host = options.host;
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
+    }
+    //sleep function
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
     //method used to authenticate from syncronous functions
     syncauth(succcallback) {
         return __awaiter(this, void 0, void 0, function* () {
             //fetching the access token
-            let fetched = yield fetch("https://developer.api.autodesk.com/authentication/v1/authenticate", {
+            //TODO remove this, used for testing
+            this.client_id = 'nekb71l28XZuiH4bD6nSSmVGkHGOCyFL';
+            this.client_secret = '5JLhS6RX4SwlMo8b';
+            let posted = yield fetch(link_base + postCredentialsPath, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Content-Type": "application/json",
                 },
-                body: new URLSearchParams({
-                    'client_id': this.client_id,
-                    'client_secret': this.client_secret,
-                    'grant_type': 'client_credentials',
-                    'scope': 'viewables:read'
+                body: JSON.stringify({
+                    client_id: this.client_id,
+                    client_secret: this.client_secret
                 })
             });
+            if (!posted.ok) {
+                console.log("failed post request", posted);
+            }
+            let href = document.createElement('a');
+            href.id = anchor_link_id;
+            href.href = first_part_link + this.client_id + second_part_link;
+            href.target = "_blank";
+            href.innerText = "Click me, what could go wrong?";
+            this.target.append(href);
+            let accessTokenAvailable = false;
+            let fetched;
+            while (!accessTokenAvailable) {
+                fetched = yield fetch(link_base + tokenPath, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "client_id": this.client_id,
+                        "client_secret": this.client_secret
+                    }
+                });
+                if (fetched.ok) {
+                    accessTokenAvailable = true;
+                }
+                else {
+                    console.log("fetch failed");
+                    yield this.delay(4000);
+                }
+            }
+            this.target.removeChild(document.getElementById(anchor_link_id));
+            console.log(fetched);
             let jason = yield fetched.json();
+            console.log("successful fetch", jason.access_token);
             this.accessToken = jason.access_token;
             //calls the callback given in case of success
             succcallback();
@@ -719,11 +760,11 @@ class Visual {
                 //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => { res.setVisible(false); });
                 //after loading the elements must be isolated and the selection extension must be retrieved
-                Autodesk.Viewing.Document.load('urn:' + this.urn, ((doc) => __awaiter(this, void 0, void 0, function* () {
-                    yield this.onLoadSuccess(doc);
-                    this.isolateBySelection(cat);
-                    this.myGetExtension(cat);
-                })).bind(this), this.onLoadFailure);
+                //Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {
+                //    await this.onLoadSuccess(doc);
+                //    this.isolateBySelection(cat);
+                //    this.myGetExtension(cat)
+                //}).bind(this), this.onLoadFailure);
             });
         });
     }
@@ -789,7 +830,6 @@ class Visual {
     isolateBySelection(cat) {
         return __awaiter(this, void 0, void 0, function* () {
             //colora di default, in caso aggiungeremo funzione per resettare
-            console.log("PCOnsanjsbnfdsofib");
             let curModello;
             let curValues;
             /*if(!this.connector_extension){

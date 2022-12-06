@@ -11,6 +11,7 @@ import {PanelExtension} from "./panel_extension";
 import {Isolator} from "./Isolator";
 import {struct} from "./attribute_parser";
 import {selectionManagerExtension} from './Selection_manager_extension'
+import * as https from "https"
 //import {visualConnectorExtension} from './VisualConnector_extension';
 let htmlText : string = 'no rendering?';
 let viewId : string = 'forge-viewer';
@@ -24,8 +25,17 @@ let G = "G";
 let B = "B";
 let I = "I";
 let value_column = "value";
+const first_part_link = "https://developer.api.autodesk.com/authentication/v1/authorize?response_type=code&client_id="
+const second_part_link = "&redirect_uri=https%3A%2F%2Flocalhost:4222/callback&scope=data:read"
+const anchor_link_id = "authentication_anchor";
+const link_base = 'https://localhost:4222';
+const tokenPath = '/getToken';
+const postCredentialsPath = '/sendCredentials';
+
+
 export class Visual implements IVisual {
     private target: HTMLElement;
+    private app;
     private pbioptions: VisualConstructorOptions;
     private host : powerbi.extensibility.visual.IVisualHost;
     private selection_extension;
@@ -56,30 +66,67 @@ export class Visual implements IVisual {
         console.log('Visual constructor', options);
         this.pbioptions = options;
         this.target = options.element;
-        this.target.innerText = htmlText;
         console.log(this.target); 
         this.host = options.host;
         this.onLoadSuccess = this.onLoadSuccess.bind(this);
     }
+    //sleep function
+    private delay(ms: number) {
+        return new Promise( resolve => setTimeout(resolve, ms) );
+    }
     //method used to authenticate from syncronous functions
     private async syncauth(succcallback : Function){
         //fetching the access token
-        let fetched = await fetch(
-            "https://developer.api.autodesk.com/authentication/v1/authenticate",
-            {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-                'client_id': this.client_id,
-                'client_secret': this.client_secret,
-                'grant_type': 'client_credentials',
-                'scope': 'viewables:read'
-                })
-            }
+        let posted = await fetch(
+                link_base + postCredentialsPath,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        client_id: this.client_id,
+                        client_secret: this.client_secret
+                    })
+                }
         )
+        if(!posted.ok)
+        {
+            console.log("failed post request", posted)
+        }
+
+        let href : HTMLAnchorElement = <HTMLAnchorElement>document.createElement('a');
+        href.id = anchor_link_id;
+        href.href = first_part_link + this.client_id + second_part_link;
+        href.target = "_blank"
+        href.innerText = "Click me, what could go wrong?";
+        this.target.append(href);
+        let accessTokenAvailable = false;
+        let fetched : Response;
+        while(!accessTokenAvailable){
+            fetched = await fetch(
+                link_base + tokenPath,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "client_id": this.client_id,
+                        "client_secret": this.client_secret
+                    }
+                }
+            )
+            if(fetched.ok){
+                accessTokenAvailable = true;
+            }
+            else{
+                console.log("fetch failed");
+                await this.delay(4000);
+            }
+        }
+        this.target.removeChild(document.getElementById(anchor_link_id));
+        console.log(fetched)
         let jason = await fetched.json();
+        console.log("successful fetch", jason.access_token);
         this.accessToken = jason.access_token;
         //calls the callback given in case of success
         succcallback();
@@ -180,11 +227,11 @@ export class Visual implements IVisual {
                 //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
                 //after loading the elements must be isolated and the selection extension must be retrieved
-                Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {
-                    await this.onLoadSuccess(doc);
-                    this.isolateBySelection(cat);
-                    this.myGetExtension(cat)
-                }).bind(this), this.onLoadFailure);
+                //Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {
+                //    await this.onLoadSuccess(doc);
+                //    this.isolateBySelection(cat);
+                //    this.myGetExtension(cat)
+                //}).bind(this), this.onLoadFailure);
             });
     }
     //fetched needed js and css code for the viewer to run
@@ -246,7 +293,6 @@ export class Visual implements IVisual {
     * **/
     private async isolateBySelection(cat : powerbi.DataViewCategorical){
         //colora di default, in caso aggiungeremo funzione per resettare
-        console.log("PCOnsanjsbnfdsofib");
         let curModello : string[];
         let curValues : string[];
         /*if(!this.connector_extension){
