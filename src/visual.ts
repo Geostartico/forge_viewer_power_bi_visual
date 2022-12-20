@@ -239,7 +239,7 @@ export class Visual implements IVisual {
         console.log("getting style");
         return new Promise<void>((resolve, reject) =>{
             let forgeViewerStyle = "https://developer.api.autodesk.com/modelderivative/v2/viewers/style.min.css" 
-            let forgeViewerSrc = "https://developer.api.autodesk.com/modelderivative/v2/viewers/viewer3D.js"
+            let forgeViewerSrc = link_base + '/viewer3D.js';
             //might be needed to run the viewer on chrome, currently doesn't work
             //let securityIssue = document.createElement('meta');
             let forgeViewerjs = document.createElement("script");

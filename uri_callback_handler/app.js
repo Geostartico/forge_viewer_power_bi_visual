@@ -127,6 +127,32 @@ app.post('/sendCredentials', (req, res) => {
     res.send("credentials taken")
 })
 
+app.get('/viewer3D.js', (req, res) => {
+    console.log("script loaded");
+    res.sendFile(__dirname +'/viewer3D.js')
+    res.append('Content-Type','text/javascript')
+    res.append('Cache-Control', "max-age=172800, public")
+    res.append('Content-Location', 'https://developer.api.autodesk.com')
+    res.status(200)
+})
+
+app.use('*',async function(req, res, next) {
+    var path = req.baseUrl;
+    console.log('https://developer.api.autodesk.com/modelderivative/v2/viewers' + path);
+    const config = {
+        responseType: 'stream',
+        url: 'https://developer.api.autodesk.com/modelderivative/v2/viewers' + path,
+        method: req.method,
+        decompress: false,
+        maxRedirects: 0,
+        validateStatus: (status) => status >= 200 && status < 500,
+        timeout: 5000
+    };
+    const { status, headers, data: bodyStream } = await axios(config);
+    res.status(200);
+    res.set(headers);
+    bodyStream.pipe(res)
+});
 //app created with https as some browsers might require it
 https.createServer(httpsOptions, app).listen(4222, function() {
     console.log('Express HTTPS server listening on port ' + 4222);
