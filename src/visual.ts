@@ -227,11 +227,11 @@ export class Visual implements IVisual {
                 //extension to hide viewCube
                 this.myloadExtension('Autodesk.ViewCubeUi', (res) => {res.setVisible(false);});
                 //after loading the elements must be isolated and the selection extension must be retrieved
-                //Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {
-                //    await this.onLoadSuccess(doc);
-                //    this.isolateBySelection(cat);
-                //    this.myGetExtension(cat)
-                //}).bind(this), this.onLoadFailure);
+                Autodesk.Viewing.Document.load('urn:' + this.urn, (async (doc) => {
+                    await this.onLoadSuccess(doc);
+                    this.isolateBySelection(cat);
+                    this.myGetExtension(cat)
+                }).bind(this), this.onLoadFailure);
             });
     }
     //fetched needed js and css code for the viewer to run
